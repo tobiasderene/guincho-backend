@@ -1,0 +1,18 @@
+# Ignorar archivo de variables de entorno
+.env
+
+# Ignorar archivos de log
+*.log
+
+# Ignorar carpetas que no sirven para la imagen
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignorar carpetas y archivos de entorno virtual
+venv/
+env/
+.idea/
+.vscode/
+.git/

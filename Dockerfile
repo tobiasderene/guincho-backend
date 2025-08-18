@@ -1,23 +1,20 @@
-# Imagen base de Python
-FROM python:3.10-slim
+# Imagen base liviana de Python
+FROM python:3.11-slim
 
-# Evita que Python genere archivos .pyc
-ENV PYTHONDONTWRITEBYTECODE=1
-# Fuerza salida más legible de logs
-ENV PYTHONUNBUFFERED=1
-
-# Setea el directorio de trabajo
+# Crear y setear el directorio de trabajo
 WORKDIR /app
 
-# Copia e instala dependencias
+# Copiar dependencias
 COPY requirements.txt .
+
+# Instalar dependencias sin cache para que sea liviano
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia el resto del código
+# Copiar el resto de tu código
 COPY . .
 
-# Cloud Run expone el puerto 8080
-ENV PORT=8080
+# Puerto por defecto para Cloud Run
+EXPOSE 8080
 
-# Comando para correr FastAPI con Uvicorn
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+# Comando para arrancar uvicorn en el puerto correcto
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
