@@ -6,10 +6,18 @@ import os
 
 load_dotenv()
 
-DB_URL = (
-    f"postgresql+psycopg2://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}"
-    f"@{os.getenv('POSTGRES_HOST')}:{os.getenv('POSTGRES_PORT')}/{os.getenv('POSTGRES_DB')}"
-)
+ENV = os.getenv("ENV", "test")  # Default a "test" si no está definida
+
+if ENV == "prod":
+    DB_URL = (
+        f"postgresql+psycopg2://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}"
+        f"@/cloudsql/{os.getenv('INSTANCE_CONNECTION_NAME')}/{os.getenv('POSTGRES_DB')}"
+    )
+else:
+    DB_URL = (
+        f"postgresql+psycopg2://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}"
+        f"@{os.getenv('POSTGRES_HOST')}:{os.getenv('POSTGRES_PORT')}/{os.getenv('POSTGRES_DB')}"
+    )
 
  
 engine = create_engine(DB_URL)
