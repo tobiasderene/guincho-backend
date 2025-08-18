@@ -1,0 +1,121 @@
+
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, LargeBinary, Binary
+from sqlalchemy.orm import relationship
+from app.db.database import Base
+
+class NacionalidadVehiculo(Base):
+    __tablename__ = 'nacionalidades_vehiculos'
+
+    id_nacionalidad_vehiculo = Column(Integer, primary_key=True)
+    nombre_nacionalidad_vehiculo = Column(String, nullable=False)
+
+    vehiculos = relationship("Vehiculo", back_populates="nacionalidad")
+
+
+class MarcaVehiculo(Base):
+    __tablename__ = 'marcas_vehiculos'
+
+    id_marca_vehiculo = Column(String, primary_key=True)
+    nombre_marca_vehiculo = Column(String, nullable=False)
+
+    vehiculos = relationship("Vehiculo", back_populates="marca")
+
+
+class CategoriaVehiculo(Base):
+    __tablename__ = 'categorias_vehiculos'
+
+    id_categoria_vehiculo = Column(Integer, primary_key=True)
+    nombre_categoria_vehiculo = Column(String, nullable=False)
+
+    vehiculos = relationship("Vehiculo", back_populates="categoria")
+
+
+class Vehiculo(Base):
+    __tablename__ = 'vehiculos'
+
+    id_vehiculo = Column(Integer, primary_key=True)
+    modelo_vehiculo = Column(String, nullable=False)
+    id_categoria_vehiculo = Column(Integer, ForeignKey('categorias_vehiculos.id_categoria_vehiculo'), nullable=False)
+    id_marca_vehiculo = Column(String, ForeignKey('marcas_vehiculos.id_marca_vehiculo'), nullable=False)
+    id_nacionalidad_vehiculo = Column(Integer, ForeignKey('nacionalidades_vehiculos.id_nacionalidad_vehiculo'), nullable=False)
+    year = Column(Integer, nullable=False)
+
+    categoria = relationship("CategoriaVehiculo", back_populates="vehiculos")
+    marca = relationship("MarcaVehiculo", back_populates="vehiculos")
+    nacionalidad = relationship("NacionalidadVehiculo", back_populates="vehiculos")
+    publicaciones = relationship("Publicacion", back_populates="vehiculo")
+
+
+class Usuario(Base):
+    __tablename__ = 'usuarios'
+
+    id_usuario = Column(Integer, primary_key=True)
+    nombre_usuario = Column(String, nullable=False)
+    password = Column(String, nullable=False)
+
+    publicaciones = relationship("Publicacion", back_populates="usuario")
+    comentarios = relationship("Comentario", back_populates="usuario")
+    likes = relationship("Like", back_populates="usuario")
+
+
+class Publicacion(Base):
+    __tablename__ = 'publicaciones'
+
+    id_publicacion = Column(Integer, primary_key=True)
+    id_usuario = Column(Integer, ForeignKey('usuarios.id_usuario'), nullable=False)
+    id_vehiculo = Column(Integer, ForeignKey('vehiculos.id_vehiculo'), nullable=False)
+    descripcion = Column(String, nullable=False)
+    fecha_publicacion = Column(Date, nullable=False)
+    descripcion_corta = Column(String, nullable=False)
+
+    usuario = relationship("Usuario", back_populates="publicaciones")
+    vehiculo = relationship("Vehiculo", back_populates="publicaciones")
+    comentarios = relationship("Comentario", back_populates="publicacion")
+    likes = relationship("Like", back_populates="publicacion")
+    imagenes = relationship("Imagen", back_populates="publicacion")
+
+
+class Comentario(Base):
+    __tablename__ = 'comentarios'
+
+    id_comentario = Column(Integer, primary_key=True)
+    descripcion_comentario = Column(String, nullable=False)
+    id_usuario = Column(Integer, ForeignKey('usuarios.id_usuario'), nullable=False)
+    id_publicacion = Column(Integer, ForeignKey('publicaciones.id_publicacion'), nullable=False)
+
+    usuario = relationship("Usuario", back_populates="comentarios")
+    publicacion = relationship("Publicacion", back_populates="comentarios")
+    likes = relationship("Like", back_populates="comentario")
+
+class Imagen(Base):
+    __tablename__ = 'imagenes'
+
+    id_imagen = Column(Integer, primary_key=True)
+    id_publicacion = Column(Integer, ForeignKey('publicaciones.id_publicacion'), nullable=False)
+    imagen_portada = Column(Binary, nullable=False)
+    url_foto = Column(String, nullable=False)
+
+    publicacion = relationship("Publicacion", back_populates="comentarios")
+    
+class Like(Base):
+    __tablename__ = 'likes'
+
+    id_like = Column(Integer, primary_key=True)
+    id_usuario = Column(Integer, ForeignKey('usuarios.id_usuario'), nullable=False)
+    id_comentario = Column(Integer, ForeignKey('comentarios.id_comentario'), nullable=True)
+    id_publicacion = Column(Integer, ForeignKey('publicaciones.id_publicacion'), nullable=True)
+
+    usuario = relationship("Usuario", back_populates="likes")
+    comentario = relationship("Comentario", back_populates="likes")
+    publicacion = relationship("Publicacion", back_populates="likes")
+
+
+class Imagen(Base):
+    __tablename__ = 'imagenes'
+
+    id_imagen = Column(Integer, primary_key=True)
+    id_publicacion = Column(Integer, ForeignKey('publicaciones.id_publicacion'), nullable=False)
+    imagen_portada = Column(LargeBinary, nullable=False)
+    url_foto = Column(String, nullable=False)
+
+    publicacion = relationship("Publicacion", back_populates="imagenes")
