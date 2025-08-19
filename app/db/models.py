@@ -1,5 +1,5 @@
 
-from sqlalchemy import Column, Integer, String, Date, ForeignKey, LargeBinary, Binary
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, LargeBinary, LargeBinary
 from sqlalchemy.orm import relationship
 from app.db.database import Base
 
@@ -92,7 +92,7 @@ class Imagen(Base):
 
     id_imagen = Column(Integer, primary_key=True)
     id_publicacion = Column(Integer, ForeignKey('publicaciones.id_publicacion'), nullable=False)
-    imagen_portada = Column(Binary, nullable=False)
+    imagen_portada = Column(LargeBinary, nullable=False)
     url_foto = Column(String, nullable=False)
 
     publicacion = relationship("Publicacion", back_populates="comentarios")
