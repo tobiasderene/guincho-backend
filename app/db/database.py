@@ -8,10 +8,10 @@ load_dotenv()
 
 ENV = os.getenv("ENV")  # Default a "test" si no está definida
 
+
 if ENV == "prod":
     DB_URL = (
-        f"postgresql+psycopg2://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}"
-        f"@/cloudsql/{os.getenv('INSTANCE_CONNECTION_NAME')}/{os.getenv('POSTGRES_DB')}"
+        f"postgresql+psycopg2://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}@/cloudsql/{os.getenv('INSTANCE_CONNECTION_NAME')}"
     )
 else:
     DB_URL = (
