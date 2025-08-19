@@ -6,7 +6,7 @@ import os
 
 load_dotenv()
 
-ENV = os.getenv("ENV", "test")  # Default a "test" si no está definida
+ENV = os.getenv("ENV")  # Default a "test" si no está definida
 
 if ENV == "prod":
     DB_URL = (
