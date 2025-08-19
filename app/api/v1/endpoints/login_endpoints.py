@@ -9,9 +9,7 @@ from app.core.security import verify_password, create_access_token, decode_token
 router = APIRouter()
 
 @router.post("/login")
-
 def login(
-    response: Response,  # Para modificar la respuesta y añadir cookies
     form_data: OAuth2PasswordRequestForm = Depends(), 
     db: Session = Depends(get_db)
 ):
@@ -26,20 +24,12 @@ def login(
 
     access_token = create_access_token(data={"sub": usuario.nombre_usuario})
 
-    # Imprimir el token en consola backend para verificar
-    print("Access token generado en backend:", access_token)
+    print("Access token generado:", access_token)  # 👀 Solo para debug, sacalo en prod
 
-    # Aquí seteamos la cookie httpOnly
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        secure=True,  # Cambiar a True en producción con HTTPS
-        samesite="none",
-        max_age=60*60*2,  # ⏱️ 2 horas por ejemplo
-    )
-
-    return {"msg": "Login exitoso"}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer"
+    }
 
 @router.get("/me")
 def me(access_token: str = Cookie(None)):
