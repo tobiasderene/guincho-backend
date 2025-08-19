@@ -34,10 +34,9 @@ def login(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=False,  # Cambiar a True en producción con HTTPS
+        secure=True,  # Cambiar a True en producción con HTTPS
         samesite="none",
         max_age=60*60*2,  # ⏱️ 2 horas por ejemplo
-        path= "/"
     )
 
     return {"msg": "Login exitoso"}
