@@ -87,15 +87,6 @@ class Comentario(Base):
     publicacion = relationship("Publicacion", back_populates="comentarios")
     likes = relationship("Like", back_populates="comentario")
 
-class Imagen(Base):
-    __tablename__ = 'imagenes'
-
-    id_imagen = Column(Integer, primary_key=True)
-    id_publicacion = Column(Integer, ForeignKey('publicaciones.id_publicacion'), nullable=False)
-    imagen_portada = Column(LargeBinary, nullable=False)
-    url_foto = Column(String, nullable=False)
-
-    publicacion = relationship("Publicacion", back_populates="comentarios")
     
 class Like(Base):
     __tablename__ = 'likes'
