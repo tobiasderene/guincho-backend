@@ -32,18 +32,20 @@ def login(
     }
 
 @router.get("/me")
-def me(access_token: str = Cookie(None)):
-    if not access_token:
+def me(authorization: str = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No autorizado")
-
-    payload = decode_token(access_token)
+    
+    token = authorization.split(" ")[1]
+    payload = decode_token(token)
+    
     if not payload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido o expirado")
-
+    
     usuario_nombre = payload.get("sub")
     if not usuario_nombre:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
-
+    
     return {"usuario": {"nombre": usuario_nombre}}
 
 @router.post("/logout")
