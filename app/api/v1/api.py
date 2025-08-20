@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.routers import usuario, auth, categoria_vehiculo, comentario, like, marca_vehiculo, nacionalidad_vehiculo, publicacion, vehiculo
+from app.api.v1.routers import usuario, upload,auth, categoria_vehiculo, comentario, like, marca_vehiculo, nacionalidad_vehiculo, publicacion, vehiculo
 
 
 api_router = APIRouter()
@@ -12,3 +12,4 @@ api_router.include_router(marca_vehiculo.router)
 api_router.include_router(nacionalidad_vehiculo.router)
 api_router.include_router(publicacion.router)
 api_router.include_router(vehiculo.router)
+api_router.include_router(upload.router)
