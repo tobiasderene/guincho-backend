@@ -11,8 +11,6 @@ router = APIRouter()
 
 BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
 
-BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
-
 @router.get("/signed-url")
 def get_signed_url(
     filename: str = Query(...),
