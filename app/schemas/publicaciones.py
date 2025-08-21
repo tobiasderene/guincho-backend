@@ -13,6 +13,10 @@ class PublicacionBase(BaseModel):
     descripcion_corta: str
     titulo: str
     url: Optional[str]
+    year_vehiculo: int
+    id_categoria_vehiculo: int
+    id_marca_vehiculo: int 
+    detalle: str
 
 class PublicacionCreate(PublicacionBase):
     pass
@@ -25,6 +29,10 @@ class PublicacionUpdate(BaseModel):
     descripcion_corta: Optional[str]
     titulo: Optional[str]
     url: Optional[str]
+    year_vehiculo: Optional[int]
+    id_categoria_vehiculo: Optional[int]
+    id_marca_vehiculo: Optional[int]
+    detalle: Optional[str]
     
 class PublicacionOut(PublicacionBase):
     id_publicacion: int

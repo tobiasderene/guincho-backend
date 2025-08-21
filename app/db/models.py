@@ -3,22 +3,13 @@ from sqlalchemy import Column, Integer, String, Date, ForeignKey, LargeBinary, L
 from sqlalchemy.orm import relationship
 from app.db.database import Base
 
-class NacionalidadVehiculo(Base):
-    __tablename__ = 'nacionalidades_vehiculos'
-
-    id_nacionalidad_vehiculo = Column(Integer, primary_key=True)
-    nombre_nacionalidad_vehiculo = Column(String, nullable=False)
-
-    vehiculos = relationship("Vehiculo", back_populates="nacionalidad")
-
-
 class MarcaVehiculo(Base):
     __tablename__ = 'marcas_vehiculos'
 
     id_marca_vehiculo = Column(String, primary_key=True)
     nombre_marca_vehiculo = Column(String, nullable=False)
 
-    vehiculos = relationship("Vehiculo", back_populates="marca")
+    publicacion = relationship("Publicacion", back_populates="marca")
 
 
 class CategoriaVehiculo(Base):
@@ -27,24 +18,7 @@ class CategoriaVehiculo(Base):
     id_categoria_vehiculo = Column(Integer, primary_key=True)
     nombre_categoria_vehiculo = Column(String, nullable=False)
 
-    vehiculos = relationship("Vehiculo", back_populates="categoria")
-
-
-class Vehiculo(Base):
-    __tablename__ = 'vehiculos'
-
-    id_vehiculo = Column(Integer, primary_key=True)
-    modelo_vehiculo = Column(String, nullable=False)
-    id_categoria_vehiculo = Column(Integer, ForeignKey('categorias_vehiculos.id_categoria_vehiculo'), nullable=False)
-    id_marca_vehiculo = Column(String, ForeignKey('marcas_vehiculos.id_marca_vehiculo'), nullable=False)
-    id_nacionalidad_vehiculo = Column(Integer, ForeignKey('nacionalidades_vehiculos.id_nacionalidad_vehiculo'), nullable=False)
-    year = Column(Integer, nullable=False)
-
-    categoria = relationship("CategoriaVehiculo", back_populates="vehiculos")
-    marca = relationship("MarcaVehiculo", back_populates="vehiculos")
-    nacionalidad = relationship("NacionalidadVehiculo", back_populates="vehiculos")
-    publicaciones = relationship("Publicacion", back_populates="vehiculo")
-
+    publicacion = relationship("Publicacion", back_populates="categoria")
 
 class Usuario(Base):
     __tablename__ = 'usuarios'
@@ -64,18 +38,23 @@ class Publicacion(Base):
 
     id_publicacion = Column(Integer, primary_key=True)
     id_usuario = Column(Integer, ForeignKey('usuarios.id_usuario'), nullable=False)
-    id_vehiculo = Column(Integer, ForeignKey('vehiculos.id_vehiculo'), nullable=False)
     descripcion = Column(String, nullable=False)
     fecha_publicacion = Column(Date, nullable=False)
     descripcion_corta = Column(String, nullable=False)
     titulo = Column(String, nullable=False)
     url = Column(String, nullable=True)
+    year_vehiculo = Column(Integer, nullable = False)
+    id_categoria_vehiculo =  Column(Integer, nullable=False)
+    id_marca_vehiculo = Column(Integer, nullable=False)
+    detalle = Column(String, nullable= False)
 
     usuario = relationship("Usuario", back_populates="publicaciones")
-    vehiculo = relationship("Vehiculo", back_populates="publicaciones")
     comentarios = relationship("Comentario", back_populates="publicacion")
     likes = relationship("Like", back_populates="publicacion")
     imagenes = relationship("Imagen", back_populates="publicacion")
+    categoria_vehiculo = relationship("CategoriaVehiculo", back_populates="publicacion")
+    marca_vehiculo = relationship("MarcaVehiculo", back_populates="publicacion")
+
 
 
 class Comentario(Base):
