@@ -7,7 +7,6 @@ from datetime import datetime
 
 class PublicacionBase(BaseModel):
     id_usuario: int
-    id_vehiculo: int
     descripcion: str
     fecha_publicacion: datetime
     descripcion_corta: str
@@ -23,7 +22,6 @@ class PublicacionCreate(PublicacionBase):
 
 class PublicacionUpdate(BaseModel):
     id_usuario: Optional[int]
-    id_vehiculo: Optional[int]
     descripcion: Optional[str]
     fecha_publicacion: Optional[datetime]
     descripcion_corta: Optional[str]
