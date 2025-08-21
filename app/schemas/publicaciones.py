@@ -11,6 +11,8 @@ class PublicacionBase(BaseModel):
     descripcion: str
     fecha_publicacion: datetime
     descripcion_corta: str
+    titulo: str
+    url: Optional[str]
 
 class PublicacionCreate(PublicacionBase):
     pass
@@ -21,6 +23,8 @@ class PublicacionUpdate(BaseModel):
     descripcion: Optional[str]
     fecha_publicacion: Optional[datetime]
     descripcion_corta: Optional[str]
+    titulo: Optional[str]
+    url: Optional[str]
     
 class PublicacionOut(PublicacionBase):
     id_publicacion: int

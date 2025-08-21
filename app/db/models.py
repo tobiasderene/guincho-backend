@@ -52,6 +52,7 @@ class Usuario(Base):
     id_usuario = Column(Integer, primary_key=True)
     nombre_usuario = Column(String, nullable=False)
     password = Column(String, nullable=False)
+    tipo_usuario = Column(String, nullable=False)
 
     publicaciones = relationship("Publicacion", back_populates="usuario")
     comentarios = relationship("Comentario", back_populates="usuario")
@@ -67,6 +68,8 @@ class Publicacion(Base):
     descripcion = Column(String, nullable=False)
     fecha_publicacion = Column(Date, nullable=False)
     descripcion_corta = Column(String, nullable=False)
+    titulo = Column(String, nullable=False)
+    url = Column(String, nullable=True)
 
     usuario = relationship("Usuario", back_populates="publicaciones")
     vehiculo = relationship("Vehiculo", back_populates="publicaciones")
