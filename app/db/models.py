@@ -44,8 +44,8 @@ class Publicacion(Base):
     titulo = Column(String, nullable=False)
     url = Column(String, nullable=True)
     year_vehiculo = Column(Integer, nullable = False)
-    id_categoria_vehiculo =  Column(Integer, nullable=False)
-    id_marca_vehiculo = Column(Integer, nullable=False)
+    id_categoria_vehiculo =  Column(Integer, ForeignKey('categorias_vehiculos.id_categoria_vehiculo'),nullable=False)
+    id_marca_vehiculo = Column(Integer, ForeignKey('marcas_vehiculos.id_marca_vehiculo'),nullable=False)
     detalle = Column(String, nullable= False)
 
     usuario = relationship("Usuario", back_populates="publicaciones")
