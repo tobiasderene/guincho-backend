@@ -1,15 +1,15 @@
 
-from sqlalchemy import Column, Integer, String, Date, ForeignKey, LargeBinary, LargeBinary
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, LargeBinary
 from sqlalchemy.orm import relationship
 from app.db.database import Base
 
 class MarcaVehiculo(Base):
     __tablename__ = 'marcas_vehiculos'
 
-    id_marca_vehiculo = Column(String, primary_key=True)
+    id_marca_vehiculo = Column(Integer, primary_key=True)
     nombre_marca_vehiculo = Column(String, nullable=False)
 
-    publicacion = relationship("Publicacion", back_populates="marca")
+    publicacion = relationship("Publicacion", back_populates="marca_vehiculo")
 
 
 class CategoriaVehiculo(Base):
@@ -18,7 +18,7 @@ class CategoriaVehiculo(Base):
     id_categoria_vehiculo = Column(Integer, primary_key=True)
     nombre_categoria_vehiculo = Column(String, nullable=False)
 
-    publicacion = relationship("Publicacion", back_populates="categoria")
+    publicacion = relationship("Publicacion", back_populates="categoria_vehiculo")
 
 class Usuario(Base):
     __tablename__ = 'usuarios'
