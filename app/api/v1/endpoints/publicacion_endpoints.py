@@ -15,9 +15,15 @@ router = APIRouter()
 def crear_publicacion(publicacion: PublicacionCreate, db: Session = Depends(get_db)):
     # 1. Crear la publicación
     nueva = Publicacion(
-        short_description=publicacion.short_description,
-        long_description=publicacion.long_description,
-        link=publicacion.link,
+        id_usuario=publicacion.id_usuario,
+        titulo=publicacion.titulo,
+        short_description=publicacion.descripcion_corta,
+        long_description=publicacion.descripcion,
+        detalle=publicacion.detalle,
+        url=publicacion.url,
+        year_vehiculo=publicacion.year_vehiculo,
+        id_categoria_vehiculo=publicacion.id_categoria_vehiculo,
+        id_marca_vehiculo=publicacion.id_marca_vehiculo,
         fecha_publicacion=datetime.utcnow()
     )
     db.add(nueva)

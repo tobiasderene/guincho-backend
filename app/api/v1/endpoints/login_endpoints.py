@@ -24,8 +24,6 @@ def login(
 
     access_token = create_access_token(data={"sub": usuario.nombre_usuario})
 
-    print("Access token generado:", access_token)  # 👀 Solo para debug, sacalo en prod
-
     return {
         "access_token": access_token,
         "token_type": "bearer"

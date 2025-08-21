@@ -14,7 +14,7 @@ BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
 @router.get("/signed-url")
 def get_signed_url(
     filename: str = Query(...),
-    current_user: dict = Depends(get_current_user),  # ✅ Solo usuarios logueados
+    current_user: dict = Depends(get_current_user),  
     db: Session = Depends(get_db),
 ):
     if not filename:
