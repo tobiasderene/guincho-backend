@@ -39,6 +39,8 @@ def decode_token(token: str):
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/login")
 
 def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
+    print("🔥 Token recibido en backend:", token)
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="No se pudo validar el token",
