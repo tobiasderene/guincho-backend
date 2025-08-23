@@ -2,26 +2,28 @@ from fastapi import APIRouter, Depends, Query, HTTPException, status
 from google.cloud import storage
 from google.auth.transport import requests
 from google.auth import default, compute_engine
-from google.oauth2 import service_account
 
 from datetime import timedelta
 import os
 from sqlalchemy.orm import Session
 from app.core.security import get_current_user 
 from app.db.database import get_db
-import json
-
 
 router = APIRouter()
 
 BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
 
-# Cargar credenciales desde el secret en variable de entorno
-if "GCS_SERVICE_ACCOUNT_JSON" not in os.environ:
-    raise RuntimeError("La variable de entorno GOOGLE_APPLICATION_CREDENTIALS_JSON no está definida")
+credentials, _ = default()
 
-service_account_info = json.loads(os.environ["GOOGLE_APPLICATION_CREDENTIALS_JSON"])
-credentials = service_account.Credentials.from_service_account_info(service_account_info)
+# then within your abstraction
+auth_request = requests.Request()
+credentials.refresh(auth_request)
+
+signing_credentials = compute_engine.IDTokenCredentials(
+    auth_request,
+    "",
+    service_account_email=credentials.service_account_email
+)
 
 @router.get("/signed-url")
 def get_signed_url(
@@ -35,19 +37,20 @@ def get_signed_url(
             detail="El parámetro filename es obligatorio."
         )
 
-    client = storage.Client(credentials=credentials)
+    client = storage.Client()
     bucket = client.bucket(BUCKET_NAME)
     blob = bucket.blob(filename)
 
     # URL temporal para subir archivo (PUT)
     upload_url = blob.generate_signed_url(
         version="v4",
-        expiration=timedelta(minutes=10),
+        expiration=timedelta(minutes=10),  # dura 10 min
         method="PUT",
-        content_type="application/octet-stream",
+        #content_type="application/octet-stream",
+        credentials= signing_credentials
     )
 
-    # URL pública para guardar en DB
+    # URL pública (para guardarla en la DB)
     public_url = f"https://storage.googleapis.com/{BUCKET_NAME}/{filename}"
 
     return {"upload_url": upload_url, "public_url": public_url}
