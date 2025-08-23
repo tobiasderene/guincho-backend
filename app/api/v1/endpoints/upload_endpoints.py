@@ -18,9 +18,9 @@ BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
 
 # Cargar credenciales desde el secret en variable de entorno
 if "GCS_SERVICE_ACCOUNT_JSON" not in os.environ:
-    raise RuntimeError("La variable de entorno GCS_SERVICE_ACCOUNT_JSON no está definida")
+    raise RuntimeError("La variable de entorno GOOGLE_APPLICATION_CREDENTIALS_JSON no está definida")
 
-service_account_info = json.loads(os.environ["GCS_SERVICE_ACCOUNT_JSON"])
+service_account_info = json.loads(os.environ["GOOGLE_APPLICATION_CREDENTIALS_JSON"])
 credentials = service_account.Credentials.from_service_account_info(service_account_info)
 
 @router.get("/signed-url")
