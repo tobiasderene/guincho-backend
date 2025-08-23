@@ -46,7 +46,7 @@ def get_signed_url(
         version="v4",
         expiration=timedelta(minutes=10),  # dura 10 min
         method="PUT",
-        content_type="application/octet-stream",
+        #content_type="application/octet-stream",
         credentials= signing_credentials
     )
 
