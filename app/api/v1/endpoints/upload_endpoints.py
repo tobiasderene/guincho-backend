@@ -3,31 +3,25 @@ from google.cloud import storage
 from google.auth.transport import requests
 from google.auth import default, compute_engine
 from google.oauth2 import service_account
-import json
+
 from datetime import timedelta
 import os
 from sqlalchemy.orm import Session
 from app.core.security import get_current_user 
 from app.db.database import get_db
+import json
+
 
 router = APIRouter()
 
 BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
 
-credentials, _ = default()
+# Cargar credenciales desde el secret en variable de entorno
+if "GCS_SERVICE_ACCOUNT_JSON" not in os.environ:
+    raise RuntimeError("La variable de entorno GCS_SERVICE_ACCOUNT_JSON no está definida")
 
-# then within your abstraction
-auth_request = requests.Request()
-credentials.refresh(auth_request)
-
-
-service_account_info = json.loads(os.environ['GOOGLE_APPLICATION_CREDENTIALS_JSON'])
-
-signing_credentials = compute_engine.IDTokenCredentials(
-    auth_request,
-    "",
-    service_account_email=credentials.service_account_email
-)
+service_account_info = json.loads(os.environ["GCS_SERVICE_ACCOUNT_JSON"])
+credentials = service_account.Credentials.from_service_account_info(service_account_info)
 
 @router.get("/signed-url")
 def get_signed_url(
@@ -53,7 +47,7 @@ def get_signed_url(
         content_type="application/octet-stream",
     )
 
-    # URL pública
+    # URL pública para guardar en DB
     public_url = f"https://storage.googleapis.com/{BUCKET_NAME}/{filename}"
 
     return {"upload_url": upload_url, "public_url": public_url}
