@@ -57,5 +57,5 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
         return {"usuario": username}
     except JWTError as e:
         print("❌ Error al decodificar token:", str(e))
-        print(SECRET_KEY)
+        print(repr(SECRET_KEY))
         raise credentials_exception

@@ -52,7 +52,7 @@ def listar_publicaciones(db: Session = Depends(get_db)):
 
 @router.get("/{id_publicacion}", response_model=PublicacionOut)
 def obtener_publicacion(id_publicacion: int, db: Session = Depends(get_db)):
-    pub = db.query(Publicacion).filter(Publicacion.id == id_publicacion).first()
+    pub = db.query(Publicacion).filter(Publicacion.id_publicacion == id_publicacion).first()
     if not pub:
         raise HTTPException(status_code=404, detail="Publicación no encontrada")
     return pub
