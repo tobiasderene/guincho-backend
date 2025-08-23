@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, Query, HTTPException, status
 from google.cloud import storage
 from google.auth.transport import requests
 from google.auth import default, compute_engine
-
+from google.oauth2 import service_account
+import json
 from datetime import timedelta
 import os
 from sqlalchemy.orm import Session
@@ -18,6 +19,9 @@ credentials, _ = default()
 # then within your abstraction
 auth_request = requests.Request()
 credentials.refresh(auth_request)
+
+
+service_account_info = json.loads(os.environ['GOOGLE_APPLICATION_CREDENTIALS_JSON'])
 
 signing_credentials = compute_engine.IDTokenCredentials(
     auth_request,
@@ -37,20 +41,19 @@ def get_signed_url(
             detail="El parámetro filename es obligatorio."
         )
 
-    client = storage.Client()
+    client = storage.Client(credentials=credentials)
     bucket = client.bucket(BUCKET_NAME)
     blob = bucket.blob(filename)
 
     # URL temporal para subir archivo (PUT)
     upload_url = blob.generate_signed_url(
         version="v4",
-        expiration=timedelta(minutes=10),  # dura 10 min
+        expiration=timedelta(minutes=10),
         method="PUT",
-        #content_type="application/octet-stream",
-        credentials= signing_credentials
+        content_type="application/octet-stream",
     )
 
-    # URL pública (para guardarla en la DB)
+    # URL pública
     public_url = f"https://storage.googleapis.com/{BUCKET_NAME}/{filename}"
 
     return {"upload_url": upload_url, "public_url": public_url}
