@@ -39,7 +39,6 @@ def decode_token(token: str):
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/login")
 
 def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
-    print("🔥 Token recibido en backend:", token)
 
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -49,9 +48,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        print("✅ Payload decodificado:", payload)
         username: str = payload.get("sub")
-        print("👤 Usuario:", username)
         if username is None:
             raise credentials_exception
         return {"usuario": username}

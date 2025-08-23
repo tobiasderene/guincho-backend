@@ -1,15 +1,29 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from google.cloud import storage
+from google.auth.transport import requests
+from google.auth import default, compute_engine
+
 from datetime import timedelta
 import os
 from sqlalchemy.orm import Session
 from app.core.security import get_current_user 
 from app.db.database import get_db
 
-
 router = APIRouter()
 
 BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
+
+credentials, _ = default()
+
+# then within your abstraction
+auth_request = requests.Request()
+credentials.refresh(auth_request)
+
+signing_credentials = compute_engine.IDTokenCredentials(
+    auth_request,
+    "",
+    service_account_email=credentials.service_account_email
+)
 
 @router.get("/signed-url")
 def get_signed_url(
@@ -33,6 +47,7 @@ def get_signed_url(
         expiration=timedelta(minutes=10),  # dura 10 min
         method="PUT",
         content_type="application/octet-stream",
+        credentials= signing_credentials
     )
 
     # URL pública (para guardarla en la DB)
