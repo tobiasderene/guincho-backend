@@ -2,12 +2,14 @@ from fastapi import APIRouter, Depends, Query, HTTPException, status
 from google.cloud import storage
 from google.auth.transport import requests
 from google.auth import default, compute_engine
-
 from datetime import timedelta
 import os
 from sqlalchemy.orm import Session
 from app.core.security import get_current_user 
 from app.db.database import get_db
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -28,29 +30,36 @@ signing_credentials = compute_engine.IDTokenCredentials(
 @router.get("/signed-url")
 def get_signed_url(
     filename: str = Query(...),
-    current_user: dict = Depends(get_current_user),  
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if not filename:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El parámetro filename es obligatorio."
+    try:
+        if not filename:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El parámetro filename es obligatorio."
+            )
+
+        logger.info(f"Generando signed URL para: {filename}")
+        client = storage.Client()
+        bucket = client.bucket(BUCKET_NAME)
+        blob = bucket.blob(filename)
+
+        upload_url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(minutes=10),
+            method="PUT",
+            credentials=signing_credentials,
         )
 
-    client = storage.Client()
-    bucket = client.bucket(BUCKET_NAME)
-    blob = bucket.blob(filename)
+        public_url = f"https://storage.googleapis.com/{BUCKET_NAME}/{filename}"
+        logger.info(f"URL generada correctamente: {upload_url}")
 
-    # URL temporal para subir archivo (PUT)
-    upload_url = blob.generate_signed_url(
-        version="v4",
-        expiration=timedelta(minutes=10),  # dura 10 min
-        method="PUT",
-        #content_type="application/octet-stream",
-        credentials= signing_credentials
-    )
+        return {"upload_url": upload_url, "public_url": public_url}
 
-    # URL pública (para guardarla en la DB)
-    public_url = f"https://storage.googleapis.com/{BUCKET_NAME}/{filename}"
-
-    return {"upload_url": upload_url, "public_url": public_url}
+    except Exception as e:
+        logger.exception("Error generando signed URL")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error interno: {str(e)}"
+        )
