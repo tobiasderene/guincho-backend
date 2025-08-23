@@ -49,6 +49,7 @@ def get_signed_url(
             version="v4",
             expiration=timedelta(minutes=10),
             method="PUT",
+            content_type="image/jpeg", 
             credentials=signing_credentials,
         )
 
