@@ -19,11 +19,12 @@ async def upload_file(file: UploadFile = File(...)):
         bucket = client.bucket(BUCKET_NAME)
         blob = bucket.blob(file.filename)
 
-        # sube el archivo al bucket
+        # sube el archivo al bucket con su content-type correcto
         blob.upload_from_file(file.file, content_type=file.content_type)
 
-        public_url = f"https://storage.googleapis.com/{BUCKET_NAME}/{file.filename}"
+        # hacerlo público (solo lectura)
+        blob.make_public()
 
-        return {"public_url": public_url}
+        return {"public_url": blob.public_url}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
