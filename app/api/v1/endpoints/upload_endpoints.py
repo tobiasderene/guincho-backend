@@ -25,6 +25,13 @@ async def upload_file(file: UploadFile = File(...)):
         # hacerlo público (solo lectura)
         blob.make_public()
 
-        return {"public_url": blob.public_url}
+                # Crear signed URL válida por 1 hora
+        signed_url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(hours=1),
+            method="GET",
+        )
+        
+        return {"signed_url": signed_url}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
