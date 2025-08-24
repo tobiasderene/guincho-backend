@@ -22,16 +22,13 @@ async def upload_file(file: UploadFile = File(...)):
         # sube el archivo al bucket con su content-type correcto
         blob.upload_from_file(file.file, content_type=file.content_type)
 
-        # hacerlo público (solo lectura)
-        blob.make_public()
-
                 # Crear signed URL válida por 1 hora
         signed_url = blob.generate_signed_url(
             version="v4",
             expiration=timedelta(hours=1),
             method="GET",
         )
-        
+
         return {"signed_url": signed_url}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
