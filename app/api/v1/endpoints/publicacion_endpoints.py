@@ -62,7 +62,7 @@ async def crear_publicacion(
         for idx, file in enumerate(files):
             img_url = upload_to_gcs(file)
             nueva_img = Imagen(
-                id_publicacion=nueva.id,
+                id_publicacion=nueva.id_publicacion,
                 url_foto=img_url,
                 imagen_portada=(idx == 0)  # la primera imagen como portada
             )
