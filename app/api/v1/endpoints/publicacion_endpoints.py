@@ -76,10 +76,35 @@ async def crear_publicacion(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/", response_model=List[PublicacionOut])
-def listar_publicaciones(db: Session = Depends(get_db)):
-    publicaciones = db.query(Publicacion).all()
-    return publicaciones
+@router.get("/", status_code=status.HTTP_200_OK)
+async def listar_publicaciones(
+    skip: int = 0,  # desde qué registro empezar
+    limit: int = 7, # cuántos traer
+    db: Session = Depends(get_db)
+):
+    try:
+        publicaciones = db.query(Publicacion).order_by(Publicacion.fecha_publicacion.desc()).offset(skip).limit(limit).all()
+
+        resultados = []
+        for pub in publicaciones:
+            # traer solo la imagen portada para no cargar todas
+            portada = db.query(Imagen).filter(
+                Imagen.id_publicacion == pub.id_publicacion,
+                Imagen.imagen_portada == b'\x01'
+            ).first()
+            resultados.append({
+                "id": pub.id_publicacion,
+                "titulo": pub.titulo,
+                "descripcion_corta": pub.descripcion_corta,
+                "url_portada": portada.url_foto if portada else None,
+                "year_vehiculo": pub.year_vehiculo
+            })
+
+        return resultados
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @router.get("/{id_publicacion}", response_model=PublicacionOut)
