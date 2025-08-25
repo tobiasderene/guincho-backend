@@ -4,9 +4,8 @@ from typing import List
 from datetime import datetime
 from google.cloud import storage
 from app.db.database import get_db
-from app.db.models import Publicacion
-from app.db.models import Imagen
-from app.schemas.publicaciones import PublicacionCreate, PublicacionOut
+from app.db.models import Publicacion, Imagen, Usuario, MarcaVehiculo, CategoriaVehiculo
+from app.schemas.publicaciones import PublicacionCreate, PublicacionOut, PublicacionDetails
 from app.schemas.imagenes import ImageCreate, ImagenOut
 
 router = APIRouter()
@@ -125,12 +124,62 @@ async def listar_publicaciones(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/{id_publicacion}", response_model=PublicacionOut)
-def obtener_publicacion(id_publicacion: int, db: Session = Depends(get_db)):
-    pub = db.query(Publicacion).filter(Publicacion.id_publicacion == id_publicacion).first()
+@router.get("/{id_publicacion}", response_model=PublicacionDetails)
+async def obtener_publicacion(
+    id_publicacion: int,
+    db: Session = Depends(get_db)
+):
+    # 1️⃣ Hacemos join con usuario, marca y categoría
+    pub = (
+        db.query(Publicacion, Usuario.nombre_usuario, MarcaVehiculo.nombre_marca_vehiculo, CategoriaVehiculo.nombre_categoria_vehiculo)
+        .join(Usuario, Usuario.id_usuario == Publicacion.id_usuario)
+        .join(MarcaVehiculo, MarcaVehiculo.id_marca_vehiculo == Publicacion.id_marca_vehiculo)
+        .join(CategoriaVehiculo, CategoriaVehiculo.id_categoria_vehiculo == Publicacion.id_categoria_vehiculo)
+        .filter(Publicacion.id_publicacion == id_publicacion)
+        .first()
+    )
+
     if not pub:
         raise HTTPException(status_code=404, detail="Publicación no encontrada")
-    return pub
+
+    publicacion, nombre_usuario, nombre_marca, nombre_categoria = pub
+
+    # 2️⃣ Portada
+    portada = (
+        db.query(Imagen)
+        .filter(
+            Imagen.id_publicacion == publicacion.id_publicacion,
+            Imagen.imagen_portada == b'\x01'
+        )
+        .first()
+    )
+
+    # 3️⃣ Todas las imágenes
+    imagenes = (
+        db.query(Imagen)
+        .filter(Imagen.id_publicacion == publicacion.id_publicacion)
+        .all()
+    )
+
+    # 4️⃣ Devolver resultado
+    return {
+        "id": publicacion.id_publicacion,
+        "id_usuario": publicacion.id_usuario,
+        "nombre_usuario": nombre_usuario,
+        "descripcion": publicacion.descripcion,
+        "descripcion_corta": publicacion.descripcion_corta,
+        "titulo": publicacion.titulo,
+        "url": publicacion.url,
+        "year_vehiculo": publicacion.year_vehiculo,
+        "id_categoria_vehiculo": publicacion.id_categoria_vehiculo,
+        "nombre_categoria_vehiculo": nombre_categoria,
+        "id_marca_vehiculo": publicacion.id_marca_vehiculo,
+        "nombre_marca_vehiculo": nombre_marca,
+        "detalle": publicacion.detalle,
+        "fecha_publicacion": publicacion.fecha_publicacion,
+        "url_portada": portada.url_foto if portada else None,
+        "imagenes": [img.url_foto for img in imagenes] if imagenes else []
+    }
 
 @router.delete("/{id_publicacion}", status_code=status.HTTP_204_NO_CONTENT)
 def eliminar_publicacion(id_publicacion: int, db: Session = Depends(get_db)):

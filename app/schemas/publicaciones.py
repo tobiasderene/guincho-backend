@@ -38,3 +38,24 @@ class PublicacionOut(PublicacionBase):
     model_config = {
         "from_attributes": True
     }
+
+class PublicacionDetails(BaseModel):
+    id: int
+    id_usuario: int
+    nombre_usuario: str
+    descripcion: str
+    descripcion_corta: str
+    titulo: str
+    url: Optional[str]
+    year_vehiculo: int
+    id_categoria_vehiculo: int
+    nombre_categoria_vehiculo: str
+    id_marca_vehiculo: int
+    nombre_marca_vehiculo: str
+    detalle: str
+    fecha_publicacion: datetime
+    url_portada: Optional[str]
+    imagenes: list[str] = []
+
+    class Config:
+        orm_mode = True
