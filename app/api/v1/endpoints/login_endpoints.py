@@ -22,7 +22,7 @@ def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token = create_access_token(data={"sub": usuario.nombre_usuario})
+    access_token = create_access_token(data={"sub": usuario.nombre_usuario, "id": usuario.id_usuario})
 
     return {
         "access_token": access_token,
