@@ -70,7 +70,7 @@ async def crear_publicacion(
         db.commit()
         db.refresh(nueva)
 
-        return {"id": nueva.id, "titulo": nueva.titulo, "imagenes": [f.filename for f in files]}
+        return {"id": nueva.id_publicacion, "titulo": nueva.titulo, "imagenes": [f.filename for f in files]}
 
     except Exception as e:
         db.rollback()
