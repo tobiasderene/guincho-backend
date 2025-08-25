@@ -76,6 +76,7 @@ async def crear_publicacion(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
+# --- Endpoint paginado con total ---
 @router.get("/", status_code=status.HTTP_200_OK)
 async def listar_publicaciones(
     skip: int = 0,  # desde qué registro empezar
@@ -83,15 +84,29 @@ async def listar_publicaciones(
     db: Session = Depends(get_db)
 ):
     try:
-        publicaciones = db.query(Publicacion).order_by(Publicacion.fecha_publicacion.desc()).offset(skip).limit(limit).all()
+        # 1️⃣ Traer publicaciones paginadas
+        publicaciones = (
+            db.query(Publicacion)
+            .order_by(Publicacion.fecha_publicacion.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
 
+        # 2️⃣ Contar total de publicaciones
+        total = db.query(Publicacion).count()
+
+        # 3️⃣ Preparar resultado (solo portada y datos necesarios)
         resultados = []
         for pub in publicaciones:
-            # traer solo la imagen portada para no cargar todas
-            portada = db.query(Imagen).filter(
-                Imagen.id_publicacion == pub.id_publicacion,
-                Imagen.imagen_portada == b'\x01'
-            ).first()
+            portada = (
+                db.query(Imagen)
+                .filter(
+                    Imagen.id_publicacion == pub.id_publicacion,
+                    Imagen.imagen_portada == b'\x01'
+                )
+                .first()
+            )
             resultados.append({
                 "id": pub.id_publicacion,
                 "titulo": pub.titulo,
@@ -100,10 +115,15 @@ async def listar_publicaciones(
                 "year_vehiculo": pub.year_vehiculo
             })
 
-        return resultados
+        # 4️⃣ Devolver total y resultados
+        return {
+            "total": total,
+            "publicaciones": resultados
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 
