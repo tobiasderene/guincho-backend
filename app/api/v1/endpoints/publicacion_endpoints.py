@@ -125,8 +125,6 @@ async def listar_publicaciones(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
-
 @router.get("/{id_publicacion}", response_model=PublicacionOut)
 def obtener_publicacion(id_publicacion: int, db: Session = Depends(get_db)):
     pub = db.query(Publicacion).filter(Publicacion.id_publicacion == id_publicacion).first()
