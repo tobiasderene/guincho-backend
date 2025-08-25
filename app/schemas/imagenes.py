@@ -1,19 +1,17 @@
 from __future__ import annotations
 from pydantic import BaseModel
-from typing import Optional 
-from typing import TYPE_CHECKING
-
+from typing import Optional
 
 class ImagenBase(BaseModel):
-    descripcion_comentario: str
-    id_usuario: int
     id_publicacion: int
+    imagen_portada: bytes  
+    url_foto: str
 
 class ImageCreate(ImagenBase):
     pass
-    
+
 class ImagenOut(ImagenBase):
-    id_comentario: int
+    id_imagen: int
 
     model_config = {
         "from_attributes": True

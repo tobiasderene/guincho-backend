@@ -64,8 +64,7 @@ async def crear_publicacion(
             nueva_img = Imagen(
                 id_publicacion=nueva.id_publicacion,
                 url_foto=img_url,
-                imagen_portada=(idx == 0)  # la primera imagen como portada
-            )
+                imagen_portada=b'\x01' if idx == 0 else b'\x00')
             db.add(nueva_img)
 
         db.commit()
