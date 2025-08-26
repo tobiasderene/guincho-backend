@@ -13,7 +13,8 @@ app = FastAPI(
 
 # Configurar CORS para los frontends
 origins = [
-    "https://guincho-motors.web.app"                       
+    "https://guincho-motors.web.app",
+    "https://guinchogarage.com"
 ]
 
 app.add_middleware(
