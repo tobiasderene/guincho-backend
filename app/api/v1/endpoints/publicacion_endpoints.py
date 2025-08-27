@@ -114,7 +114,8 @@ async def listar_publicaciones(
                 "titulo": pub.titulo,
                 "descripcion_corta": pub.descripcion_corta,
                 "url_portada": portada.url_foto if portada else None,
-                "year_vehiculo": pub.year_vehiculo
+                "year_vehiculo": pub.year_vehiculo,
+                "fecha_publicacion": pub.fecha_publicacion
             })
 
         # 4️⃣ Devolver total y resultados
