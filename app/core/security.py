@@ -38,8 +38,7 @@ def decode_token(token: str):
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/login")
 
-def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
-
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> dict:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="No se pudo validar el token",
@@ -49,10 +48,13 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
-        if username is None:
+        user_id: int = payload.get("id")  # 🔑 Asegurate que al crear el token incluyas el id
+
+        if username is None or user_id is None:
             raise credentials_exception
-        return {"usuario": username}
+
+        return {"id": user_id, "usuario": username}
+
     except JWTError as e:
         print("❌ Error al decodificar token:", str(e))
-        print(repr(SECRET_KEY))
         raise credentials_exception

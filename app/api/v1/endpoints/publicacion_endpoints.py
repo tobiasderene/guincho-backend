@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
 from google.cloud import storage
+from app.core.security import get_current_user
 from app.db.database import get_db
 from app.db.models import Publicacion, Imagen, Usuario, MarcaVehiculo, CategoriaVehiculo
 from app.schemas.publicaciones import PublicacionCreate, PublicacionOut, PublicacionDetails
@@ -35,14 +36,14 @@ async def crear_publicacion(
     year_vehiculo: int = Form(...),
     id_categoria_vehiculo: int = Form(...),
     id_marca_vehiculo: int = Form(...),
-    id_usuario: int = Form(...),
     files: List[UploadFile] = File(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     try:
-        # 1️⃣ Crear la publicación
+        # Crear la publicación usando el ID del usuario logueado
         nueva = Publicacion(
-            id_usuario=id_usuario,
+            id_usuario=current_user["id"],
             titulo=titulo,
             descripcion_corta=descripcion_corta,
             descripcion=descripcion,
@@ -57,13 +58,14 @@ async def crear_publicacion(
         db.commit()
         db.refresh(nueva)
 
-        # 2️⃣ Subir imágenes y guardarlas en la DB
+        # Subir imágenes
         for idx, file in enumerate(files):
             img_url = upload_to_gcs(file)
             nueva_img = Imagen(
                 id_publicacion=nueva.id_publicacion,
                 url_foto=img_url,
-                imagen_portada=b'\x01' if idx == 0 else b'\x00')
+                imagen_portada=b'\x01' if idx == 0 else b'\x00'
+            )
             db.add(nueva_img)
 
         db.commit()
@@ -74,6 +76,7 @@ async def crear_publicacion(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # --- Endpoint paginado con total ---
 @router.get("/", status_code=status.HTTP_200_OK)
