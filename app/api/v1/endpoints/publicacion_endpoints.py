@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, UploadFile, HTTPException, Form, status, File
+from fastapi import APIRouter, Depends, UploadFile, HTTPException, Form, status, File, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 from google.cloud import storage
 from app.core.security import get_current_user
@@ -78,27 +78,48 @@ async def crear_publicacion(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# --- Endpoint paginado con total ---
+# --- Endpoint paginado con filtros de búsqueda ---
 @router.get("/", status_code=status.HTTP_200_OK)
 async def listar_publicaciones(
-    skip: int = 0,  # desde qué registro empezar
-    limit: int = 7, # cuántos traer
+    skip: int = Query(0, ge=0),      # desde qué registro empezar
+    limit: int = Query(7, ge=1, le=50), # cuántos traer (máximo 50)
+    marca: Optional[int] = Query(None),   # id_marca_vehiculo
+    año: Optional[int] = Query(None),     # year_vehiculo  
+    modelo: Optional[str] = Query(None),  # búsqueda LIKE en titulo
+    categoria: Optional[int] = Query(None), # id_categoria_vehiculo (por si lo necesitas)
     db: Session = Depends(get_db)
 ):
     try:
-        # 1️⃣ Traer publicaciones paginadas
+        # 1️⃣ Construir query base
+        query = db.query(Publicacion)
+        
+        # 2️⃣ Aplicar filtros dinámicamente
+        if marca:
+            query = query.filter(Publicacion.id_marca_vehiculo == marca)
+        
+        if año:
+            query = query.filter(Publicacion.year_vehiculo == año)
+        
+        if modelo and modelo.strip():
+            # Búsqueda insensible a mayúsculas/minúsculas
+            query = query.filter(Publicacion.titulo.ilike(f"%{modelo.strip()}%"))
+        
+        if categoria:
+            query = query.filter(Publicacion.id_categoria_vehiculo == categoria)
+        
+        # 3️⃣ Contar total CON filtros aplicados
+        total = query.count()
+        
+        # 4️⃣ Aplicar paginación y ordenamiento
         publicaciones = (
-            db.query(Publicacion)
+            query
             .order_by(Publicacion.fecha_publicacion.desc())
             .offset(skip)
             .limit(limit)
             .all()
         )
 
-        # 2️⃣ Contar total de publicaciones
-        total = db.query(Publicacion).count()
-
-        # 3️⃣ Preparar resultado (solo portada y datos necesarios)
+        # 5️⃣ Preparar resultado (solo portada y datos necesarios)
         resultados = []
         for pub in publicaciones:
             portada = (
@@ -109,23 +130,47 @@ async def listar_publicaciones(
                 )
                 .first()
             )
+            
+            # Obtener nombres de marca y categoría para mostrar en las tarjetas
+            marca_nombre = (
+                db.query(MarcaVehiculo.nombre_marca_vehiculo)
+                .filter(MarcaVehiculo.id_marca_vehiculo == pub.id_marca_vehiculo)
+                .scalar()
+            )
+            
+            categoria_nombre = (
+                db.query(CategoriaVehiculo.nombre_categoria_vehiculo)
+                .filter(CategoriaVehiculo.id_categoria_vehiculo == pub.id_categoria_vehiculo)
+                .scalar()
+            )
+            
             resultados.append({
                 "id": pub.id_publicacion,
                 "titulo": pub.titulo,
                 "descripcion_corta": pub.descripcion_corta,
                 "url_portada": portada.url_foto if portada else None,
                 "year_vehiculo": pub.year_vehiculo,
+                "id_marca_vehiculo": pub.id_marca_vehiculo,
+                "nombre_marca_vehiculo": marca_nombre,
+                "id_categoria_vehiculo": pub.id_categoria_vehiculo,
+                "nombre_categoria_vehiculo": categoria_nombre,
                 "fecha_publicacion": pub.fecha_publicacion
             })
 
-        # 4️⃣ Devolver total y resultados
+        # 6️⃣ Devolver total (con filtros) y resultados
         return {
             "total": total,
-            "publicaciones": resultados
+            "publicaciones": resultados,
+            "filtros_aplicados": {
+                "marca": marca,
+                "año": año,
+                "modelo": modelo,
+                "categoria": categoria
+            }
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error en búsqueda: {str(e)}")
 
 
 @router.get("/{id_publicacion}", response_model=PublicacionDetails)
