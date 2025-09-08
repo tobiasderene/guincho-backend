@@ -30,7 +30,7 @@ def login(
     }
 
 @router.get("/me")
-def me(authorization: str = Header(None)):
+def me(authorization: str = Header(None), db: Session = Depends(get_db)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No autorizado")
     
@@ -40,11 +40,19 @@ def me(authorization: str = Header(None)):
     if not payload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido o expirado")
     
+    usuario_id = payload.get("id")  # Obtener el ID del token
     usuario_nombre = payload.get("sub")
-    if not usuario_nombre:
+    
+    if not usuario_nombre or not usuario_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
     
-    return {"usuario": {"nombre": usuario_nombre}}
+    # Devolver tanto el nombre como el ID
+    return {
+        "usuario": {
+            "id": usuario_id,
+            "nombre": usuario_nombre
+        }
+    }
 
 @router.post("/logout")
 def logout(response: Response):
