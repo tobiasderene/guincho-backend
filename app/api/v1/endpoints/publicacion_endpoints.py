@@ -8,6 +8,9 @@ from app.db.database import get_db
 from app.db.models import Publicacion, Imagen, Usuario, MarcaVehiculo, CategoriaVehiculo
 from app.schemas.publicaciones import PublicacionCreate, PublicacionOut, PublicacionDetails
 from app.schemas.imagenes import ImageCreate, ImagenOut
+from google.cloud.exceptions import NotFound
+import os
+from urllib.parse import urlparse
 
 router = APIRouter()
 
@@ -230,10 +233,108 @@ async def obtener_publicacion(
         "imagenes": [img.url_foto for img in imagenes] if imagenes else []
     }
 
+def delete_from_gcs(file_url: str) -> bool:
+    """
+    Elimina un archivo de Google Cloud Storage usando su URL.
+    
+    Args:
+        file_url (str): URL completa del archivo en GCS
+        
+    Returns:
+        bool: True si se eliminó correctamente, False si hubo error
+    """
+    try:
+        # Configurar cliente de GCS
+        client = storage.Client()
+        
+        # Extraer el nombre del bucket y el blob name de la URL
+        # Ejemplo: https://storage.googleapis.com/tu-bucket/carpeta/archivo.jpg
+        parsed_url = urlparse(file_url)
+        path_parts = parsed_url.path.lstrip('/').split('/', 1)
+        
+        if len(path_parts) < 2:
+            print(f"URL inválida: {file_url}")
+            return False
+            
+        bucket_name = path_parts[0]
+        blob_name = path_parts[1]
+        
+        # Obtener el bucket
+        bucket = client.bucket(bucket_name)
+        
+        # Obtener el blob (archivo)
+        blob = bucket.blob(blob_name)
+        
+        # Eliminar el archivo
+        blob.delete()
+        
+        print(f"Archivo eliminado exitosamente: {blob_name}")
+        return True
+        
+    except NotFound:
+        print(f"Archivo no encontrado en GCS: {file_url}")
+        return False
+    except Exception as e:
+        print(f"Error eliminando archivo de GCS: {str(e)}")
+        return False
+
 @router.delete("/{id_publicacion}", status_code=status.HTTP_204_NO_CONTENT)
-def eliminar_publicacion(id_publicacion: int, db: Session = Depends(get_db)):
-    pub = db.query(Publicacion).filter(Publicacion.id_publicacion == id_publicacion).first()
-    if not pub:
-        raise HTTPException(status_code=404, detail="Publicación no encontrada")
-    db.delete(pub)
-    db.commit()
+async def eliminar_publicacion(
+    id_publicacion: int, 
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Elimina una publicación. Solo el propietario puede eliminar su publicación.
+    También elimina todas las imágenes asociadas.
+    """
+    try:
+        # Buscar la publicación
+        pub = db.query(Publicacion).filter(
+            Publicacion.id_publicacion == id_publicacion
+        ).first()
+        
+        if not pub:
+            raise HTTPException(status_code=404, detail="Publicación no encontrada")
+        
+        # Verificar que el usuario sea el propietario
+        if pub.id_usuario != current_user["id"]:
+            raise HTTPException(
+                status_code=403, 
+                detail="No tienes permiso para eliminar esta publicación"
+            )
+        
+        # Obtener y eliminar imágenes asociadas
+        imagenes = db.query(Imagen).filter(
+            Imagen.id_publicacion == id_publicacion
+        ).all()
+        
+        # Eliminar archivos de GCS y registros de BD
+        for img in imagenes:
+            # Eliminar archivo físico de Google Cloud Storage
+            try:
+                delete_success = delete_from_gcs(img.url_foto)
+                if not delete_success:
+                    print(f"Advertencia: No se pudo eliminar {img.url_foto} de GCS")
+            except Exception as e:
+                print(f"Error eliminando imagen de GCS: {e}")
+                # Continuar con la eliminación de la BD aunque falle GCS
+            
+            # Eliminar registro de la base de datos
+            db.delete(img)
+        
+        # Eliminar la publicación
+        db.delete(pub)
+        db.commit()
+        
+        return  # 204 No Content no devuelve body
+        
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error interno del servidor: {str(e)}"
+        )
