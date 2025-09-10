@@ -338,3 +338,150 @@ async def eliminar_publicacion(
             status_code=500, 
             detail=f"Error interno del servidor: {str(e)}"
         )
+    
+
+@router.put("/{id_publicacion}", status_code=status.HTTP_200_OK)
+async def editar_publicacion(
+    id_publicacion: int,
+    titulo: str = Form(...),
+    descripcion_corta: str = Form(...),
+    descripcion: str = Form(...),
+    detalle: str = Form(...),
+    url: str = Form(None),
+    year_vehiculo: int = Form(...),
+    id_categoria_vehiculo: int = Form(...),
+    id_marca_vehiculo: int = Form(...),
+    files: Optional[List[UploadFile]] = File(None),  # Nuevas imágenes (opcional)
+    mantener_imagenes: str = Form(""),  # IDs de imágenes a mantener, separadas por comas
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Edita una publicación existente. Solo el propietario puede editarla.
+    
+    Args:
+        id_publicacion: ID de la publicación a editar
+        titulo, descripcion_corta, etc.: Nuevos datos de la publicación
+        files: Nuevas imágenes a agregar (opcional)
+        mantener_imagenes: IDs de imágenes existentes que se mantendrán (ej: "1,3,5")
+    """
+    try:
+        # 1️⃣ Buscar y verificar la publicación
+        pub = db.query(Publicacion).filter(
+            Publicacion.id_publicacion == id_publicacion
+        ).first()
+        
+        if not pub:
+            raise HTTPException(status_code=404, detail="Publicación no encontrada")
+        
+        # Verificar que el usuario sea el propietario
+        if pub.id_usuario != current_user["id"]:
+            raise HTTPException(
+                status_code=403, 
+                detail="No tienes permiso para editar esta publicación"
+            )
+        
+        # 2️⃣ Actualizar los datos de la publicación
+        pub.titulo = titulo
+        pub.descripcion_corta = descripcion_corta
+        pub.descripcion = descripcion
+        pub.detalle = detalle
+        pub.url = url
+        pub.year_vehiculo = year_vehiculo
+        pub.id_categoria_vehiculo = id_categoria_vehiculo
+        pub.id_marca_vehiculo = id_marca_vehiculo
+        
+        # 3️⃣ Manejar las imágenes
+        imagenes_actuales = db.query(Imagen).filter(
+            Imagen.id_publicacion == id_publicacion
+        ).all()
+        
+        # Parsear IDs de imágenes a mantener
+        ids_mantener = []
+        if mantener_imagenes.strip():
+            try:
+                ids_mantener = [int(id.strip()) for id in mantener_imagenes.split(',') if id.strip()]
+            except ValueError:
+                raise HTTPException(status_code=400, detail="IDs de imágenes inválidos")
+        
+        # Eliminar imágenes que no están en la lista de mantener
+        for img in imagenes_actuales:
+            if img.id_imagen not in ids_mantener:
+                # Eliminar archivo de GCS
+                try:
+                    delete_success = delete_from_gcs(img.url_foto)
+                    if not delete_success:
+                        print(f"Advertencia: No se pudo eliminar {img.url_foto} de GCS")
+                except Exception as e:
+                    print(f"Error eliminando imagen de GCS: {e}")
+                
+                # Eliminar de la base de datos
+                db.delete(img)
+        
+        # 4️⃣ Subir nuevas imágenes si las hay
+        if files and len(files) > 0:
+            # Verificar si ya no hay imágenes mantenidas, la primera nueva será portada
+            imagenes_restantes = [img for img in imagenes_actuales if img.id_imagen in ids_mantener]
+            tiene_portada = any(img.imagen_portada == b'\x01' for img in imagenes_restantes)
+            
+            for idx, file in enumerate(files):
+                # Verificar que el archivo no esté vacío
+                if file.filename and file.size > 0:
+                    img_url = upload_to_gcs(file)
+                    
+                    # Si no hay portada y es la primera imagen nueva, hacerla portada
+                    es_portada = not tiene_portada and idx == 0
+                    
+                    nueva_img = Imagen(
+                        id_publicacion=id_publicacion,
+                        url_foto=img_url,
+                        imagen_portada=b'\x01' if es_portada else b'\x00'
+                    )
+                    db.add(nueva_img)
+                    
+                    if es_portada:
+                        tiene_portada = True
+        
+        # 5️⃣ Si no hay portada después de todo, hacer la primera imagen restante como portada
+        if ids_mantener:
+            # Resetear todas las portadas
+            db.query(Imagen).filter(
+                Imagen.id_publicacion == id_publicacion
+            ).update({"imagen_portada": b'\x00'})
+            
+            # Hacer la primera imagen mantenida como portada
+            primera_img = db.query(Imagen).filter(
+                Imagen.id_publicacion == id_publicacion,
+                Imagen.id_imagen.in_(ids_mantener)
+            ).first()
+            
+            if primera_img:
+                primera_img.imagen_portada = b'\x01'
+        
+        # 6️⃣ Confirmar cambios
+        db.commit()
+        db.refresh(pub)
+        
+        # 7️⃣ Obtener imágenes actualizadas para respuesta
+        imagenes_finales = db.query(Imagen).filter(
+            Imagen.id_publicacion == id_publicacion
+        ).all()
+        
+        return {
+            "message": "Publicación actualizada exitosamente",
+            "id": pub.id_publicacion,
+            "titulo": pub.titulo,
+            "total_imagenes": len(imagenes_finales),
+            "imagenes_agregadas": len(files) if files else 0,
+            "imagenes_eliminadas": len(imagenes_actuales) - len([img for img in imagenes_actuales if img.id_imagen in ids_mantener])
+        }
+
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error actualizando publicación: {str(e)}"
+        )
