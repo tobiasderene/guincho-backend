@@ -59,3 +59,27 @@ class PublicacionDetails(BaseModel):
 
     class Config:
         orm_mode = True
+
+# En tu archivo de schemas
+class ImagenDetalle(BaseModel):
+    id_imagen: int
+    url_foto: str
+    is_portada: bool
+
+class PublicacionEditDetails(BaseModel):
+    id: int
+    id_usuario: int
+    nombre_usuario: str
+    descripcion: str
+    descripcion_corta: str
+    titulo: str
+    url: Optional[str]
+    year_vehiculo: int
+    id_categoria_vehiculo: int
+    nombre_categoria_vehiculo: str
+    id_marca_vehiculo: int
+    nombre_marca_vehiculo: str
+    detalle: Optional[str]
+    fecha_publicacion: datetime
+    url_portada: Optional[str]
+    imagenes: List[ImagenDetalle] = []
