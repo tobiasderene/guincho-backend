@@ -6,7 +6,7 @@ from google.cloud import storage
 from app.core.security import get_current_user
 from app.db.database import get_db
 from app.db.models import Publicacion, Imagen, Usuario, MarcaVehiculo, CategoriaVehiculo
-from app.schemas.publicaciones import PublicacionCreate, PublicacionOut, PublicacionDetails
+from app.schemas.publicaciones import PublicacionCreate, PublicacionOut, PublicacionDetails, PublicacionEditDetails
 from app.schemas.imagenes import ImageCreate, ImagenOut
 from google.cloud.exceptions import NotFound
 import os
@@ -228,8 +228,8 @@ async def obtener_publicacion(
     }
 
 
-@router.get("/edit-post/{id_publicacion}", response_model=PublicacionDetails)
-async def obtener_publicacion(
+@router.get("/edit-post/{id_publicacion}", response_model=PublicacionEditDetails)
+async def obtener_publicacion_para_editar(
     id_publicacion: int,
     db: Session = Depends(get_db)
 ):
