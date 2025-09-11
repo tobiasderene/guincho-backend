@@ -1,10 +1,12 @@
 from __future__ import annotations
-from pydantic import BaseModel
-from typing import Optional 
-from typing import TYPE_CHECKING
+from typing import Optional, List
 from datetime import datetime
+from pydantic import BaseModel
 
 
+# ===========================
+# Modelos base
+# ===========================
 class PublicacionBase(BaseModel):
     id_usuario: int
     descripcion: str
@@ -17,8 +19,10 @@ class PublicacionBase(BaseModel):
     id_marca_vehiculo: int 
     detalle: str
 
+
 class PublicacionCreate(PublicacionBase):
     pass
+
 
 class PublicacionUpdate(BaseModel):
     id_usuario: Optional[int]
@@ -31,13 +35,18 @@ class PublicacionUpdate(BaseModel):
     id_categoria_vehiculo: Optional[int]
     id_marca_vehiculo: Optional[int]
     detalle: Optional[str]
-    
+
+
+# ===========================
+# Modelos de salida
+# ===========================
 class PublicacionOut(PublicacionBase):
     id_publicacion: int
 
     model_config = {
         "from_attributes": True
     }
+
 
 class PublicacionDetails(BaseModel):
     id: int
@@ -55,16 +64,21 @@ class PublicacionDetails(BaseModel):
     detalle: str
     fecha_publicacion: datetime
     url_portada: Optional[str]
-    imagenes: list[str] = []
+    imagenes: List[str] = []
 
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
-# En tu archivo de schemas
+
+# ===========================
+# Modelos de edición y detalle
+# ===========================
 class ImagenDetalle(BaseModel):
     id_imagen: int
     url_foto: str
     is_portada: bool
+
 
 class PublicacionEditDetails(BaseModel):
     id: int
@@ -83,3 +97,19 @@ class PublicacionEditDetails(BaseModel):
     fecha_publicacion: datetime
     url_portada: Optional[str]
     imagenes: List[ImagenDetalle] = []
+
+    model_config = {
+        "from_attributes": True
+    }
+
+
+# ===========================
+# 🔧 Reconstrucción de modelos (Pydantic v2)
+# ===========================
+PublicacionBase.model_rebuild()
+PublicacionCreate.model_rebuild()
+PublicacionUpdate.model_rebuild()
+PublicacionOut.model_rebuild()
+PublicacionDetails.model_rebuild()
+ImagenDetalle.model_rebuild()
+PublicacionEditDetails.model_rebuild()
