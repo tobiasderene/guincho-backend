@@ -245,30 +245,55 @@ async def obtener_publicacion_para_editar(id_publicacion: int, db: Session = Dep
 @router.put("/{id}")
 async def actualizar_publicacion(
     id: int,
-    request: Request,
+    titulo: str = Form(...),
+    descripcion_corta: str = Form(...),
+    descripcion: str = Form(...),
+    detalle: Optional[str] = Form(None),
+    url: Optional[str] = Form(None),
+    year_vehiculo: int = Form(...),
+    id_categoria_vehiculo: int = Form(...),
+    id_marca_vehiculo: int = Form(...),
+    mantener_imagenes: str = Form(""),
+    nueva_portada: Optional[str] = Form(None),
+    files: List[UploadFile] = [],
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
     try:
-        form = await request.form()
-        nueva_portada = form.get('nueva_portada')
-        mantener_imagenes = form.get('mantener_imagenes', '')
-        files = request.form.getlist('files') if 'files' in form else []
+        # --- Validación de propiedad ---
+        publicacion = db.query(Publicacion).filter(Publicacion.id_publicacion == id).first()
+        if not publicacion:
+            raise HTTPException(status_code=404, detail="Publicación no encontrada")
+        if publicacion.id_usuario != current_user["id"]:
+            raise HTTPException(status_code=403, detail="No tienes permiso para editar esta publicación")
 
-        # Quitar portada de todas las imágenes existentes
+        # --- Actualizar campos de la publicación ---
+        publicacion.titulo = titulo
+        publicacion.descripcion_corta = descripcion_corta
+        publicacion.descripcion = descripcion
+        publicacion.detalle = detalle
+        publicacion.url = url
+        publicacion.year_vehiculo = year_vehiculo
+        publicacion.id_categoria_vehiculo = id_categoria_vehiculo
+        publicacion.id_marca_vehiculo = id_marca_vehiculo
+        db.add(publicacion)
+
+        # --- Manejo de imágenes ---
+        # Quitar portada de todas las existentes
         db.query(Imagen).filter(Imagen.id_publicacion == id).update({Imagen.imagen_portada: b'\x00'})
 
-        # Mantener imágenes
+        # Mantener imágenes existentes
         keep_ids = []
         if mantener_imagenes:
             keep_ids = [int(x.strip()) for x in mantener_imagenes.split(',') if x.strip()]
-            if keep_ids:
-                db.query(Imagen).filter(
-                    Imagen.id_publicacion == id,
-                    ~Imagen.id_imagen.in_(keep_ids)
-                ).delete(synchronize_session=False)
-            else:
-                db.query(Imagen).filter(Imagen.id_publicacion == id).delete(synchronize_session=False)
+            # Eliminar las que no se mantienen
+            db.query(Imagen).filter(
+                Imagen.id_publicacion == id,
+                ~Imagen.id_imagen.in_(keep_ids)
+            ).delete(synchronize_session=False)
+        else:
+            # Si no mantiene ninguna, eliminar todas
+            db.query(Imagen).filter(Imagen.id_publicacion == id).delete(synchronize_session=False)
 
         # Insertar nuevas imágenes
         nueva_imagen_ids = []
@@ -280,24 +305,29 @@ async def actualizar_publicacion(
                 imagen_portada=b'\x00'
             )
             db.add(nueva_img)
-            db.flush()
+            db.flush()  # Para obtener id_imagen
             nueva_imagen_ids.append(nueva_img.id_imagen)
 
         # Definir portada
+        portada_id = None
         if nueva_portada:
-            if nueva_portada == 'nueva_0' and nueva_imagen_ids:
-                portada_id = nueva_imagen_ids[0]
-            elif nueva_portada.isdigit() and int(nueva_portada) in keep_ids:
-                portada_id = int(nueva_portada)
-            else:
-                portada_id = None
+            if nueva_portada.startswith("nueva_"):
+                index = int(nueva_portada.split("_")[1])
+                if index < len(nueva_imagen_ids):
+                    portada_id = nueva_imagen_ids[index]
+            elif nueva_portada.isdigit():
+                pid = int(nueva_portada)
+                if pid in keep_ids:
+                    portada_id = pid
 
-            if portada_id:
-                db.query(Imagen).filter(Imagen.id_imagen == portada_id).update({Imagen.imagen_portada: b'\x01'})
-        else:
-            first = db.query(Imagen).filter(Imagen.id_publicacion == id).order_by(Imagen.id_imagen).first()
-            if first:
-                first.imagen_portada = b'\x01'
+        # Si no se definió portada, tomar la primera imagen disponible
+        if not portada_id:
+            first_img = db.query(Imagen).filter(Imagen.id_publicacion == id).order_by(Imagen.id_imagen).first()
+            if first_img:
+                portada_id = first_img.id_imagen
+
+        if portada_id:
+            db.query(Imagen).filter(Imagen.id_imagen == portada_id).update({Imagen.imagen_portada: b'\x01'})
 
         db.commit()
         return {"mensaje": "Publicación actualizada correctamente", "id": id}
@@ -305,6 +335,7 @@ async def actualizar_publicacion(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error actualizando publicación: {str(e)}")
+
 
 
 # --- Helper para guardar imágenes en disco (local) ---
