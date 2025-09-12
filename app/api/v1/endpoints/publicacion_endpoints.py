@@ -266,3 +266,101 @@ async def save_image_file(file: UploadFile):
         content = await file.read()
         buffer.write(content)
     return f"/uploads/images/{unique_filename}"
+
+# 🗑️ Helper para borrar archivos en Google Cloud Storage
+def delete_from_gcs(file_url: str) -> bool:
+    """
+    Elimina un archivo de Google Cloud Storage usando su URL.
+
+    Args:
+        file_url (str): URL completa del archivo en GCS
+
+    Returns:
+        bool: True si se eliminó correctamente, False si hubo error
+    """
+    try:
+        client = storage.Client()
+
+        # Extraer bucket y blob de la URL
+        # Ej: https://storage.googleapis.com/tu-bucket/carpeta/archivo.jpg
+        parsed_url = urlparse(file_url)
+        path_parts = parsed_url.path.lstrip('/').split('/', 1)
+        if len(path_parts) < 2:
+            print(f"URL inválida: {file_url}")
+            return False
+
+        bucket_name, blob_name = path_parts
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(blob_name)
+
+        # Eliminar archivo
+        blob.delete()
+        print(f"Archivo eliminado exitosamente: {blob_name}")
+        return True
+
+    except NotFound:
+        print(f"Archivo no encontrado en GCS: {file_url}")
+        return False
+    except Exception as e:
+        print(f"Error eliminando archivo de GCS: {str(e)}")
+        return False
+
+
+# 🗑️ Endpoint DELETE de publicaciones
+@router.delete("/{id_publicacion}", status_code=status.HTTP_204_NO_CONTENT)
+async def eliminar_publicacion(
+    id_publicacion: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Elimina una publicación (y sus imágenes asociadas).
+    Solo el propietario puede eliminar su publicación.
+    """
+    try:
+        # Buscar la publicación
+        pub = (
+            db.query(Publicacion)
+            .filter(Publicacion.id_publicacion == id_publicacion)
+            .first()
+        )
+
+        if not pub:
+            raise HTTPException(status_code=404, detail="Publicación no encontrada")
+
+        # Verificar propietario
+        if pub.id_usuario != current_user["id"]:
+            raise HTTPException(
+                status_code=403,
+                detail="No tienes permiso para eliminar esta publicación"
+            )
+
+        # Obtener imágenes asociadas
+        imagenes = db.query(Imagen).filter(Imagen.id_publicacion == id_publicacion).all()
+
+        # Eliminar imágenes (en GCS y en BD)
+        for img in imagenes:
+            try:
+                ok = delete_from_gcs(img.url_foto)
+                if not ok:
+                    print(f"⚠️ No se pudo eliminar {img.url_foto} de GCS")
+            except Exception as e:
+                print(f"❌ Error eliminando {img.url_foto} de GCS: {e}")
+
+            db.delete(img)
+
+        # Eliminar la publicación
+        db.delete(pub)
+        db.commit()
+
+        return  # 204 No Content
+
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error interno del servidor: {str(e)}"
+        )
