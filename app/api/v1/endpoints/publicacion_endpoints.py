@@ -398,148 +398,147 @@ async def eliminar_publicacion(
         )
     
 
-@router.put("/{id_publicacion}", status_code=status.HTTP_200_OK)
-async def editar_publicacion(
-    id_publicacion: int,
-    titulo: str = Form(...),
-    descripcion_corta: str = Form(...),
-    descripcion: str = Form(...),
-    detalle: str = Form(...),
-    url: str = Form(None),
-    year_vehiculo: int = Form(...),
-    id_categoria_vehiculo: int = Form(...),
-    id_marca_vehiculo: int = Form(...),
-    files: Optional[List[UploadFile]] = File(None),  # Nuevas imágenes (opcional)
-    mantener_imagenes: str = Form(""),  # IDs de imágenes a mantener, separadas por comas
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    Edita una publicación existente. Solo el propietario puede editarla.
-    
-    Args:
-        id_publicacion: ID de la publicación a editar
-        titulo, descripcion_corta, etc.: Nuevos datos de la publicación
-        files: Nuevas imágenes a agregar (opcional)
-        mantener_imagenes: IDs de imágenes existentes que se mantendrán (ej: "1,3,5")
-    """
-    try:
-        # 1️⃣ Buscar y verificar la publicación
-        pub = db.query(Publicacion).filter(
-            Publicacion.id_publicacion == id_publicacion
-        ).first()
-        
-        if not pub:
-            raise HTTPException(status_code=404, detail="Publicación no encontrada")
-        
-        # Verificar que el usuario sea el propietario
-        if pub.id_usuario != current_user["id"]:
-            raise HTTPException(
-                status_code=403, 
-                detail="No tienes permiso para editar esta publicación"
-            )
-        
-        # 2️⃣ Actualizar los datos de la publicación
-        pub.titulo = titulo
-        pub.descripcion_corta = descripcion_corta
-        pub.descripcion = descripcion
-        pub.detalle = detalle
-        pub.url = url
-        pub.year_vehiculo = year_vehiculo
-        pub.id_categoria_vehiculo = id_categoria_vehiculo
-        pub.id_marca_vehiculo = id_marca_vehiculo
-        
-        # 3️⃣ Manejar las imágenes
-        imagenes_actuales = db.query(Imagen).filter(
-            Imagen.id_publicacion == id_publicacion
-        ).all()
-        
-        # Parsear IDs de imágenes a mantener
-        ids_mantener = []
-        if mantener_imagenes.strip():
-            try:
-                ids_mantener = [int(id.strip()) for id in mantener_imagenes.split(',') if id.strip()]
-            except ValueError:
-                raise HTTPException(status_code=400, detail="IDs de imágenes inválidos")
-        
-        # Eliminar imágenes que no están en la lista de mantener
-        for img in imagenes_actuales:
-            if img.id_imagen not in ids_mantener:
-                # Eliminar archivo de GCS
-                try:
-                    delete_success = delete_from_gcs(img.url_foto)
-                    if not delete_success:
-                        print(f"Advertencia: No se pudo eliminar {img.url_foto} de GCS")
-                except Exception as e:
-                    print(f"Error eliminando imagen de GCS: {e}")
-                
-                # Eliminar de la base de datos
-                db.delete(img)
-        
-        # 4️⃣ Subir nuevas imágenes si las hay
-        if files and len(files) > 0:
-            # Verificar si ya no hay imágenes mantenidas, la primera nueva será portada
-            imagenes_restantes = [img for img in imagenes_actuales if img.id_imagen in ids_mantener]
-            tiene_portada = any(img.imagen_portada == b'\x01' for img in imagenes_restantes)
-            
-            for idx, file in enumerate(files):
-                # Verificar que el archivo no esté vacío
-                if file.filename and file.size > 0:
-                    img_url = upload_to_gcs(file)
-                    
-                    # Si no hay portada y es la primera imagen nueva, hacerla portada
-                    es_portada = not tiene_portada and idx == 0
-                    
-                    nueva_img = Imagen(
-                        id_publicacion=id_publicacion,
-                        url_foto=img_url,
-                        imagen_portada=b'\x01' if es_portada else b'\x00'
-                    )
-                    db.add(nueva_img)
-                    
-                    if es_portada:
-                        tiene_portada = True
-        
-        # 5️⃣ Si no hay portada después de todo, hacer la primera imagen restante como portada
-        if ids_mantener:
-            # Resetear todas las portadas
-            db.query(Imagen).filter(
-                Imagen.id_publicacion == id_publicacion
-            ).update({"imagen_portada": b'\x00'})
-            
-            # Hacer la primera imagen mantenida como portada
-            primera_img = db.query(Imagen).filter(
-                Imagen.id_publicacion == id_publicacion,
-                Imagen.id_imagen.in_(ids_mantener)
-            ).first()
-            
-            if primera_img:
-                primera_img.imagen_portada = b'\x01'
-        
-        # 6️⃣ Confirmar cambios
-        db.commit()
-        db.refresh(pub)
-        
-        # 7️⃣ Obtener imágenes actualizadas para respuesta
-        imagenes_finales = db.query(Imagen).filter(
-            Imagen.id_publicacion == id_publicacion
-        ).all()
-        
-        return {
-            "message": "Publicación actualizada exitosamente",
-            "id": pub.id_publicacion,
-            "titulo": pub.titulo,
-            "total_imagenes": len(imagenes_finales),
-            "imagenes_agregadas": len(files) if files else 0,
-            "imagenes_eliminadas": len(imagenes_actuales) - len([img for img in imagenes_actuales if img.id_imagen in ids_mantener])
-        }
+# BACKEND (Python/FastAPI) - Actualizar tu endpoint PUT
 
-    except HTTPException:
-        db.rollback()
-        raise
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Error actualizando publicación: {str(e)}"
+@app.put("/api/v1/publicacion/{id}")
+async def actualizar_publicacion(id: int, request: Request):
+    try:
+        form = await request.form()
+        nueva_portada = form.get('nueva_portada')
+        mantener_imagenes = form.get('mantener_imagenes', '')
+        files = form.getlist('files')
+        
+        # ... resto de tu lógica para actualizar la publicación ...
+        
+        # NUEVA LÓGICA PARA MANEJAR LA PORTADA SIN DUPLICACIÓN
+        
+        # 1. PRIMERO: Quitar portada de TODAS las imágenes existentes de esta publicación
+        await db.execute(
+            "UPDATE imagenes SET is_portada = FALSE WHERE id_publicacion = ?", 
+            [id]
         )
+        
+        # 2. Procesar imágenes que se mantienen
+        keep_ids = []
+        if mantener_imagenes:
+            keep_ids = [int(x.strip()) for x in mantener_imagenes.split(',') if x.strip()]
+            
+            # Eliminar imágenes que NO se van a mantener
+            if keep_ids:
+                placeholders = ','.join(['?' for _ in keep_ids])
+                await db.execute(
+                    f"DELETE FROM imagenes WHERE id_publicacion = ? AND id_imagen NOT IN ({placeholders})",
+                    [id] + keep_ids
+                )
+        else:
+            # Si no se mantiene ninguna imagen, eliminar todas
+            await db.execute("DELETE FROM imagenes WHERE id_publicacion = ?", [id])
+        
+        # 3. Insertar nuevas imágenes
+        nueva_imagen_ids = []
+        for i, file in enumerate(files):
+            # Guardar archivo y obtener URL
+            file_url = await save_image_file(file)  # Tu función para guardar imágenes
+            
+            # Insertar nueva imagen
+            result = await db.execute(
+                "INSERT INTO imagenes (id_publicacion, url_foto, is_portada) VALUES (?, ?, ?)",
+                [id, file_url, False]  # Inicialmente todas como NO portada
+            )
+            nueva_imagen_ids.append(result.lastrowid)
+        
+        # 4. ESTABLECER LA PORTADA SEGÚN LA LÓGICA ENVIADA DESDE EL FRONTEND
+        if nueva_portada:
+            if nueva_portada == 'nueva_0' and nueva_imagen_ids:
+                # La primera nueva imagen será la portada
+                await db.execute(
+                    "UPDATE imagenes SET is_portada = TRUE WHERE id_imagen = ?",
+                    [nueva_imagen_ids[0]]
+                )
+            elif nueva_portada != 'nueva_0' and nueva_portada.isdigit():
+                # Una imagen existente que se mantuvo será la portada
+                image_id = int(nueva_portada)
+                if image_id in keep_ids:  # Verificar que la imagen se mantuvo
+                    await db.execute(
+                        "UPDATE imagenes SET is_portada = TRUE WHERE id_imagen = ?",
+                        [image_id]
+                    )
+        else:
+            # Fallback: Si no se especifica portada, la primera imagen disponible será portada
+            if keep_ids:
+                await db.execute(
+                    "UPDATE imagenes SET is_portada = TRUE WHERE id_imagen = ? LIMIT 1",
+                    [keep_ids[0]]
+                )
+            elif nueva_imagen_ids:
+                await db.execute(
+                    "UPDATE imagenes SET is_portada = TRUE WHERE id_imagen = ? LIMIT 1",
+                    [nueva_imagen_ids[0]]
+                )
+        
+        # 5. VERIFICACIÓN FINAL: Asegurar que solo hay UNA portada
+        portada_count = await db.fetch_val(
+            "SELECT COUNT(*) FROM imagenes WHERE id_publicacion = ? AND is_portada = TRUE",
+            [id]
+        )
+        
+        if portada_count == 0:
+            # Si no hay portada, hacer portada a la primera imagen disponible
+            first_image = await db.fetch_one(
+                "SELECT id_imagen FROM imagenes WHERE id_publicacion = ? ORDER BY id_imagen LIMIT 1",
+                [id]
+            )
+            if first_image:
+                await db.execute(
+                    "UPDATE imagenes SET is_portada = TRUE WHERE id_imagen = ?",
+                    [first_image['id_imagen']]
+                )
+        elif portada_count > 1:
+            # Si hay múltiples portadas, mantener solo la primera
+            portadas = await db.fetch_all(
+                "SELECT id_imagen FROM imagenes WHERE id_publicacion = ? AND is_portada = TRUE ORDER BY id_imagen",
+                [id]
+            )
+            
+            # Mantener solo la primera como portada
+            for i, portada in enumerate(portadas):
+                if i > 0:  # Quitar portada de las demás
+                    await db.execute(
+                        "UPDATE imagenes SET is_portada = FALSE WHERE id_imagen = ?",
+                        [portada['id_imagen']]
+                    )
+        
+        await db.commit()
+        
+        return {"mensaje": "Publicación actualizada correctamente", "id": id}
+        
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error actualizando publicación: {str(e)}")
+
+
+# FUNCIÓN HELPER PARA GUARDAR IMÁGENES (si no la tienes)
+async def save_image_file(file):
+    """
+    Guarda el archivo de imagen y retorna la URL
+    """
+    import os
+    import uuid
+    from pathlib import Path
+    
+    # Generar nombre único para el archivo
+    file_extension = file.filename.split('.')[-1].lower()
+    unique_filename = f"{uuid.uuid4()}.{file_extension}"
+    
+    # Crear directorio si no existe
+    upload_dir = Path("uploads/images")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Guardar archivo
+    file_path = upload_dir / unique_filename
+    with open(file_path, "wb") as buffer:
+        content = await file.read()
+        buffer.write(content)
+    
+    # Retornar URL relativa o absoluta según tu configuración
+    return f"/uploads/images/{unique_filename}"
