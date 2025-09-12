@@ -10,11 +10,10 @@ from app.schemas.publicaciones import PublicacionCreate, PublicacionOut, Publica
 from app.schemas.imagenes import ImageCreate, ImagenOut
 from google.cloud.exceptions import NotFound
 import os
+import uuid
 from urllib.parse import urlparse
 
 router = APIRouter()
-
-import os
 BUCKET_NAME = os.getenv("BUCKET_NAME")
 
 # --- Helper para subir imagen ---
