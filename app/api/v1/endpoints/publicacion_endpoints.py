@@ -399,7 +399,7 @@ async def eliminar_publicacion(
 
 # BACKEND (Python/FastAPI) - Actualizar tu endpoint PUT
 
-@app.put("/api/v1/publicacion/{id}")
+@app.put("/{id}")
 async def actualizar_publicacion(id: int, request: Request):
     try:
         form = await request.form()
