@@ -188,12 +188,9 @@ async def obtener_publicacion(id_publicacion: int, db: Session = Depends(get_db)
         "imagenes": [img.url_foto for img in imagenes] if imagenes else []
     }
 
-@router.get("/edit-post/{id_publicacion}", response_model=PublicacionDetails)
-async def obtener_publicacion(
-    id_publicacion: int,
-    db: Session = Depends(get_db)
-):
-    # 1️⃣ Hacemos join con usuario, marca y categoría
+# Obtener publicación para editar (incluye IDs de imagen)
+@router.get("/edit-post/{id_publicacion}", response_model=PublicacionEditDetails)
+async def obtener_publicacion_para_editar(id_publicacion: int, db: Session = Depends(get_db)):
     pub = (
         db.query(Publicacion, Usuario.nombre_usuario, MarcaVehiculo.nombre_marca_vehiculo, CategoriaVehiculo.nombre_categoria_vehiculo)
         .join(Usuario, Usuario.id_usuario == Publicacion.id_usuario)
@@ -205,26 +202,19 @@ async def obtener_publicacion(
     if not pub:
         raise HTTPException(status_code=404, detail="Publicación no encontrada")
     publicacion, nombre_usuario, nombre_marca, nombre_categoria = pub
-    
-    # 2️⃣ Portada
+
     portada = (
         db.query(Imagen)
-        .filter(
-            Imagen.id_publicacion == publicacion.id_publicacion,
-            Imagen.imagen_portada == b'\x01'
-        )
+        .filter(Imagen.id_publicacion == publicacion.id_publicacion, Imagen.imagen_portada == b'\x01')
         .first()
     )
-    
-    # 3️⃣ Todas las imágenes - MODIFICADO PARA INCLUIR IDs
     imagenes = (
         db.query(Imagen)
         .filter(Imagen.id_publicacion == publicacion.id_publicacion)
-        .order_by(Imagen.id_imagen)  # Ordenar por ID para consistencia
+        .order_by(Imagen.id_imagen)
         .all()
     )
-    
-    # 4️⃣ Devolver resultado - CAMBIO PRINCIPAL AQUÍ
+
     return {
         "id": publicacion.id_publicacion,
         "id_usuario": publicacion.id_usuario,
@@ -241,14 +231,12 @@ async def obtener_publicacion(
         "detalle": publicacion.detalle,
         "fecha_publicacion": publicacion.fecha_publicacion,
         "url_portada": portada.url_foto if portada else None,
-        # ⭐ CAMBIO: Devolver objetos con id_imagen y url_foto
         "imagenes": [
             {
                 "id_imagen": img.id_imagen,
                 "url_foto": img.url_foto,
                 "is_portada": img.imagen_portada == b'\x01'
-            }
-            for img in imagenes
+            } for img in imagenes
         ] if imagenes else []
     }
 
