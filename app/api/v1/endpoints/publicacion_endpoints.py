@@ -309,14 +309,18 @@ async def actualizar_publicacion(
             # Si no mantiene ninguna, eliminar todas
             db.query(Imagen).filter(Imagen.id_publicacion == id).delete(synchronize_session=False)
 
-        # Obtener el próximo número de imagen
-        max_numero = (
-            db.query(Imagen.numero_imagen)
+        # Reenumerar imágenes existentes desde 1
+        imagenes_existentes = (
+            db.query(Imagen)
             .filter(Imagen.id_publicacion == id)
-            .order_by(Imagen.numero_imagen.desc())
-            .first()
+            .order_by(Imagen.numero_imagen)
+            .all()
         )
-        siguiente_numero = (max_numero[0] if max_numero else 0) + 1
+        for idx, img in enumerate(imagenes_existentes, start=1):
+            img.numero_imagen = idx
+
+        # Obtener el siguiente número para nuevas imágenes
+        siguiente_numero = len(imagenes_existentes) + 1
 
         # Insertar nuevas imágenes
         nueva_imagen_ids = []
