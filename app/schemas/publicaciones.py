@@ -77,7 +77,6 @@ class PublicacionDetails(BaseModel):
 class ImagenDetalle(BaseModel):
     id_imagen: int
     url_foto: str
-    is_portada: bool
 
 
 class PublicacionEditDetails(BaseModel):
