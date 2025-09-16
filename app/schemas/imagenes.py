@@ -6,6 +6,7 @@ class ImagenBase(BaseModel):
     id_publicacion: int
     imagen_portada: bytes  
     url_foto: str
+    numero_imagen: int
 
 class ImageCreate(ImagenBase):
     pass

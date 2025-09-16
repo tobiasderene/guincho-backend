@@ -90,5 +90,6 @@ class Imagen(Base):
     id_publicacion = Column(Integer, ForeignKey('publicaciones.id_publicacion'), nullable=False)
     imagen_portada = Column(LargeBinary, nullable=False)
     url_foto = Column(String, nullable=False)
+    numero_imagen = Column(Integer, nullable = False)
 
     publicacion = relationship("Publicacion", back_populates="imagenes")

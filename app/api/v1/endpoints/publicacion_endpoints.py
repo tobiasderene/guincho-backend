@@ -58,12 +58,14 @@ async def crear_publicacion(
         db.commit()
         db.refresh(nueva)
 
+        # Crear imágenes con número secuencial
         for idx, file in enumerate(files):
             img_url = upload_to_gcs(file)
             nueva_img = Imagen(
                 id_publicacion=nueva.id_publicacion,
                 url_foto=img_url,
-                imagen_portada=b'\x01' if idx == 0 else b'\x00'
+                imagen_portada=b'\x01' if idx == 0 else b'\x00',
+                numero_imagen=idx + 1  # Numeración desde 1
             )
             db.add(nueva_img)
 
@@ -110,12 +112,14 @@ async def listar_publicaciones(
 
         resultados = []
         for pub in publicaciones:
+            # Buscar la imagen portada (ordenada por numero_imagen como fallback)
             portada = (
                 db.query(Imagen)
                 .filter(
                     Imagen.id_publicacion == pub.id_publicacion,
                     Imagen.imagen_portada == b'\x01'
                 )
+                .order_by(Imagen.numero_imagen)
                 .first()
             )
             marca_nombre = (
@@ -165,9 +169,16 @@ async def obtener_publicacion(id_publicacion: int, db: Session = Depends(get_db)
     portada = (
         db.query(Imagen)
         .filter(Imagen.id_publicacion == publicacion.id_publicacion, Imagen.imagen_portada == b'\x01')
+        .order_by(Imagen.numero_imagen)
         .first()
     )
-    imagenes = db.query(Imagen).filter(Imagen.id_publicacion == publicacion.id_publicacion).all()
+    # Obtener imágenes ordenadas por numero_imagen
+    imagenes = (
+        db.query(Imagen)
+        .filter(Imagen.id_publicacion == publicacion.id_publicacion)
+        .order_by(Imagen.numero_imagen)
+        .all()
+    )
 
     return {
         "id": publicacion.id_publicacion,
@@ -188,7 +199,7 @@ async def obtener_publicacion(id_publicacion: int, db: Session = Depends(get_db)
         "imagenes": [img.url_foto for img in imagenes] if imagenes else []
     }
 
-# Obtener publicación para editar (incluye IDs de imagen)
+# Obtener publicación para editar (incluye IDs de imagen y numero_imagen)
 @router.get("/edit-post/{id_publicacion}", response_model=PublicacionEditDetails)
 async def obtener_publicacion_para_editar(id_publicacion: int, db: Session = Depends(get_db)):
     pub = (
@@ -206,12 +217,14 @@ async def obtener_publicacion_para_editar(id_publicacion: int, db: Session = Dep
     portada = (
         db.query(Imagen)
         .filter(Imagen.id_publicacion == publicacion.id_publicacion, Imagen.imagen_portada == b'\x01')
+        .order_by(Imagen.numero_imagen)
         .first()
     )
+    # Obtener imágenes ordenadas por numero_imagen
     imagenes = (
         db.query(Imagen)
         .filter(Imagen.id_publicacion == publicacion.id_publicacion)
-        .order_by(Imagen.id_imagen)
+        .order_by(Imagen.numero_imagen)
         .all()
     )
 
@@ -235,7 +248,8 @@ async def obtener_publicacion_para_editar(id_publicacion: int, db: Session = Dep
             {
                 "id_imagen": img.id_imagen,
                 "url_foto": img.url_foto,
-                "is_portada": img.imagen_portada == b'\x01'
+                "is_portada": img.imagen_portada == b'\x01',
+                "numero_imagen": img.numero_imagen
             } for img in imagenes
         ] if imagenes else []
     }
@@ -295,6 +309,15 @@ async def actualizar_publicacion(
             # Si no mantiene ninguna, eliminar todas
             db.query(Imagen).filter(Imagen.id_publicacion == id).delete(synchronize_session=False)
 
+        # Obtener el próximo número de imagen
+        max_numero = (
+            db.query(Imagen.numero_imagen)
+            .filter(Imagen.id_publicacion == id)
+            .order_by(Imagen.numero_imagen.desc())
+            .first()
+        )
+        siguiente_numero = (max_numero[0] if max_numero else 0) + 1
+
         # Insertar nuevas imágenes
         nueva_imagen_ids = []
         for i, file in enumerate(files):
@@ -302,7 +325,8 @@ async def actualizar_publicacion(
             nueva_img = Imagen(
                 id_publicacion=id,
                 url_foto=file_url,
-                imagen_portada=b'\x00'
+                imagen_portada=b'\x00',
+                numero_imagen=siguiente_numero + i
             )
             db.add(nueva_img)
             db.flush()  # Para obtener id_imagen
@@ -320,9 +344,14 @@ async def actualizar_publicacion(
                 if pid in keep_ids:
                     portada_id = pid
 
-        # Si no se definió portada, tomar la primera imagen disponible
+        # Si no se definió portada, tomar la primera imagen disponible (por numero_imagen)
         if not portada_id:
-            first_img = db.query(Imagen).filter(Imagen.id_publicacion == id).order_by(Imagen.id_imagen).first()
+            first_img = (
+                db.query(Imagen)
+                .filter(Imagen.id_publicacion == id)
+                .order_by(Imagen.numero_imagen)
+                .first()
+            )
             if first_img:
                 portada_id = first_img.id_imagen
 
@@ -335,7 +364,6 @@ async def actualizar_publicacion(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error actualizando publicación: {str(e)}")
-
 
 
 # --- Helper para guardar imágenes en disco (local) ---
@@ -418,8 +446,13 @@ async def eliminar_publicacion(
                 detail="No tienes permiso para eliminar esta publicación"
             )
 
-        # Obtener imágenes asociadas
-        imagenes = db.query(Imagen).filter(Imagen.id_publicacion == id_publicacion).all()
+        # Obtener imágenes asociadas (ordenadas por numero_imagen)
+        imagenes = (
+            db.query(Imagen)
+            .filter(Imagen.id_publicacion == id_publicacion)
+            .order_by(Imagen.numero_imagen)
+            .all()
+        )
 
         # Eliminar imágenes (en GCS y en BD)
         for img in imagenes:
@@ -447,3 +480,40 @@ async def eliminar_publicacion(
             status_code=500,
             detail=f"Error interno del servidor: {str(e)}"
         )
+
+
+# --- Endpoint adicional para reordenar imágenes ---
+@router.put("/{id_publicacion}/reorder-images")
+async def reordenar_imagenes(
+    id_publicacion: int,
+    nuevos_numeros: List[dict],  # [{"id_imagen": 1, "numero_imagen": 2}, ...]
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Permite reordenar las imágenes de una publicación actualizando numero_imagen.
+    
+    Args:
+        nuevos_numeros: Lista de objetos con id_imagen y su nuevo numero_imagen
+    """
+    try:
+        # Verificar propiedad de la publicación
+        publicacion = db.query(Publicacion).filter(Publicacion.id_publicacion == id_publicacion).first()
+        if not publicacion:
+            raise HTTPException(status_code=404, detail="Publicación no encontrada")
+        if publicacion.id_usuario != current_user["id"]:
+            raise HTTPException(status_code=403, detail="No tienes permiso para editar esta publicación")
+
+        # Actualizar los números de imagen
+        for item in nuevos_numeros:
+            db.query(Imagen).filter(
+                Imagen.id_imagen == item["id_imagen"],
+                Imagen.id_publicacion == id_publicacion
+            ).update({Imagen.numero_imagen: item["numero_imagen"]})
+
+        db.commit()
+        return {"mensaje": "Orden de imágenes actualizado correctamente"}
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error reordenando imágenes: {str(e)}")
