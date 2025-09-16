@@ -58,13 +58,12 @@ async def crear_publicacion(
         db.commit()
         db.refresh(nueva)
 
-        # Crear imágenes con número secuencial
+        # Crear imágenes con número secuencial (la primera será la portada)
         for idx, file in enumerate(files):
             img_url = upload_to_gcs(file)
             nueva_img = Imagen(
                 id_publicacion=nueva.id_publicacion,
                 url_foto=img_url,
-                imagen_portada=b'\x01' if idx == 0 else b'\x00',
                 numero_imagen=idx + 1  # Numeración desde 1
             )
             db.add(nueva_img)
@@ -112,14 +111,13 @@ async def listar_publicaciones(
 
         resultados = []
         for pub in publicaciones:
-            # Buscar la imagen portada (ordenada por numero_imagen como fallback)
+            # Buscar la imagen portada (la primera imagen: numero_imagen = 1)
             portada = (
                 db.query(Imagen)
                 .filter(
                     Imagen.id_publicacion == pub.id_publicacion,
-                    Imagen.imagen_portada == b'\x01'
+                    Imagen.numero_imagen == 1
                 )
-                .order_by(Imagen.numero_imagen)
                 .first()
             )
             marca_nombre = (
@@ -166,12 +164,16 @@ async def obtener_publicacion(id_publicacion: int, db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail="Publicación no encontrada")
     publicacion, nombre_usuario, nombre_marca, nombre_categoria = pub
 
+    # La portada es la primera imagen (numero_imagen = 1)
     portada = (
         db.query(Imagen)
-        .filter(Imagen.id_publicacion == publicacion.id_publicacion, Imagen.imagen_portada == b'\x01')
-        .order_by(Imagen.numero_imagen)
+        .filter(
+            Imagen.id_publicacion == publicacion.id_publicacion,
+            Imagen.numero_imagen == 1
+        )
         .first()
     )
+    
     # Obtener imágenes ordenadas por numero_imagen
     imagenes = (
         db.query(Imagen)
@@ -214,12 +216,16 @@ async def obtener_publicacion_para_editar(id_publicacion: int, db: Session = Dep
         raise HTTPException(status_code=404, detail="Publicación no encontrada")
     publicacion, nombre_usuario, nombre_marca, nombre_categoria = pub
 
+    # La portada es la primera imagen (numero_imagen = 1)
     portada = (
         db.query(Imagen)
-        .filter(Imagen.id_publicacion == publicacion.id_publicacion, Imagen.imagen_portada == b'\x01')
-        .order_by(Imagen.numero_imagen)
+        .filter(
+            Imagen.id_publicacion == publicacion.id_publicacion,
+            Imagen.numero_imagen == 1
+        )
         .first()
     )
+    
     # Obtener imágenes ordenadas por numero_imagen
     imagenes = (
         db.query(Imagen)
@@ -248,7 +254,7 @@ async def obtener_publicacion_para_editar(id_publicacion: int, db: Session = Dep
             {
                 "id_imagen": img.id_imagen,
                 "url_foto": img.url_foto,
-                "is_portada": img.imagen_portada == b'\x01',
+                "is_portada": img.numero_imagen == 1,  # True si es la primera imagen
                 "numero_imagen": img.numero_imagen
             } for img in imagenes
         ] if imagenes else []
@@ -293,9 +299,6 @@ async def actualizar_publicacion(
         db.add(publicacion)
 
         # --- Manejo de imágenes ---
-        # Quitar portada de todas las existentes
-        db.query(Imagen).filter(Imagen.id_publicacion == id).update({Imagen.imagen_portada: b'\x00'})
-
         # Mantener imágenes existentes
         keep_ids = []
         if mantener_imagenes:
@@ -309,58 +312,62 @@ async def actualizar_publicacion(
             # Si no mantiene ninguna, eliminar todas
             db.query(Imagen).filter(Imagen.id_publicacion == id).delete(synchronize_session=False)
 
-        # Reenumerar imágenes existentes desde 1
+        # Obtener todas las imágenes que quedan (mantenidas + nuevas que se agregarán)
         imagenes_existentes = (
             db.query(Imagen)
             .filter(Imagen.id_publicacion == id)
             .order_by(Imagen.numero_imagen)
             .all()
         )
-        for idx, img in enumerate(imagenes_existentes, start=1):
-            img.numero_imagen = idx
 
-        # Obtener el siguiente número para nuevas imágenes
+        # Agregar nuevas imágenes
+        nueva_imagen_objs = []
         siguiente_numero = len(imagenes_existentes) + 1
-
-        # Insertar nuevas imágenes
-        nueva_imagen_ids = []
+        
         for i, file in enumerate(files):
             file_url = await save_image_file(file)
             nueva_img = Imagen(
                 id_publicacion=id,
                 url_foto=file_url,
-                imagen_portada=b'\x00',
                 numero_imagen=siguiente_numero + i
             )
             db.add(nueva_img)
             db.flush()  # Para obtener id_imagen
-            nueva_imagen_ids.append(nueva_img.id_imagen)
+            nueva_imagen_objs.append(nueva_img)
 
-        # Definir portada
-        portada_id = None
+        # --- Lógica para definir la nueva portada ---
+        # Obtener todas las imágenes actuales (existentes + nuevas)
+        todas_imagenes = imagenes_existentes + nueva_imagen_objs
+        
+        # Determinar qué imagen debe ser la portada
+        portada_objetivo = None
+        
         if nueva_portada:
             if nueva_portada.startswith("nueva_"):
+                # Es una imagen nueva
                 index = int(nueva_portada.split("_")[1])
-                if index < len(nueva_imagen_ids):
-                    portada_id = nueva_imagen_ids[index]
+                if index < len(nueva_imagen_objs):
+                    portada_objetivo = nueva_imagen_objs[index]
             elif nueva_portada.isdigit():
+                # Es una imagen existente
                 pid = int(nueva_portada)
-                if pid in keep_ids:
-                    portada_id = pid
+                portada_objetivo = next((img for img in imagenes_existentes if img.id_imagen == pid), None)
+        
+        # Si no se especificó portada, la primera imagen será la portada
+        if not portada_objetivo and todas_imagenes:
+            portada_objetivo = todas_imagenes[0]
 
-        # Si no se definió portada, tomar la primera imagen disponible (por numero_imagen)
-        if not portada_id:
-            first_img = (
-                db.query(Imagen)
-                .filter(Imagen.id_publicacion == id)
-                .order_by(Imagen.numero_imagen)
-                .first()
-            )
-            if first_img:
-                portada_id = first_img.id_imagen
-
-        if portada_id:
-            db.query(Imagen).filter(Imagen.id_imagen == portada_id).update({Imagen.imagen_portada: b'\x01'})
+        # --- Reorganizar números para que la portada sea número 1 ---
+        if portada_objetivo:
+            # Lista de todas las imágenes ordenadas: portada primero, luego el resto
+            imagenes_ordenadas = [portada_objetivo]
+            for img in todas_imagenes:
+                if img.id_imagen != portada_objetivo.id_imagen:
+                    imagenes_ordenadas.append(img)
+            
+            # Reasignar números secuenciales
+            for idx, img in enumerate(imagenes_ordenadas, start=1):
+                img.numero_imagen = idx
 
         db.commit()
         return {"mensaje": "Publicación actualizada correctamente", "id": id}
@@ -486,7 +493,7 @@ async def eliminar_publicacion(
         )
 
 
-# --- Endpoint adicional para reordenar imágenes ---
+# --- Endpoint para reordenar imágenes ---
 @router.put("/{id_publicacion}/reorder-images")
 async def reordenar_imagenes(
     id_publicacion: int,
@@ -496,6 +503,7 @@ async def reordenar_imagenes(
 ):
     """
     Permite reordenar las imágenes de una publicación actualizando numero_imagen.
+    La imagen con numero_imagen = 1 será automáticamente la portada.
     
     Args:
         nuevos_numeros: Lista de objetos con id_imagen y su nuevo numero_imagen
