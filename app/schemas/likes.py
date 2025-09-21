@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 
 class LikesBase(BaseModel):
     id_usuario: int
-    id_comentario: int
-    id_publicacion: int
+    id_comentario: Optional[int] = None
+    id_publicacion: Optional[int] = None
 
 class LikesCreate(LikesBase):
     pass
