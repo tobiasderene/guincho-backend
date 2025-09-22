@@ -102,8 +102,14 @@ async def listar_publicaciones(
             query = query.filter(Publicacion.id_categoria_vehiculo == categoria)
 
         total = query.count()
+        
+        # Ordenar por fecha de publicación descendente (más nuevo primero)
+        # Agregamos también id_publicacion desc como criterio secundario para consistencia
         publicaciones = (
-            query.order_by(Publicacion.fecha_publicacion.desc())
+            query.order_by(
+                Publicacion.fecha_publicacion.desc(),
+                Publicacion.id_publicacion.desc()
+            )
             .offset(skip)
             .limit(limit)
             .all()
