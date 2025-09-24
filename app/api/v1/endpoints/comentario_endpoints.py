@@ -31,7 +31,7 @@ def obtener_comentarios(db: Session = Depends(get_db)):
     # Obtener comentarios con JOIN para incluir nombre de usuario
     comentarios = (
         db.query(Comentario, Usuario.nombre_usuario)
-        .join(Usuario, Comentario.id_usuario == Usuario.id)
+        .join(Usuario, Comentario.id_usuario == Usuario.id_usuario)
         .all()
     )
     
@@ -50,7 +50,7 @@ def obtener_comentarios_por_publicacion(id_publicacion: int, db: Session = Depen
     # Obtener comentarios de la publicación con JOIN para incluir nombre de usuario
     comentarios = (
         db.query(Comentario, Usuario.nombre_usuario)
-        .join(Usuario, Comentario.id_usuario == Usuario.id)
+        .join(Usuario, Comentario.id_usuario == Usuario.id_usuario)
         .filter(Comentario.id_publicacion == id_publicacion)
         .all()
     )
