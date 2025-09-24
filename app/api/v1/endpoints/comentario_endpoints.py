@@ -17,7 +17,7 @@ def crear_comentario(comentario: ComentarioCreate, db: Session = Depends(get_db)
     db.refresh(nuevo_comentario)
     
     # Obtener el nombre del usuario para la respuesta
-    usuario = db.query(Usuario).filter(Usuario.id == nuevo_comentario.id_usuario).first()
+    usuario = db.query(Usuario).filter(Usuario.id_usuario == nuevo_comentario.id_usuario).first()
     
     # Crear respuesta con campos adicionales
     response = ComentarioOut.from_orm(nuevo_comentario)
