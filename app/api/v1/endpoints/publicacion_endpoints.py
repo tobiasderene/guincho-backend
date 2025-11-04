@@ -331,7 +331,7 @@ async def actualizar_publicacion(
         siguiente_numero = len(imagenes_existentes) + 1
         
         for i, file in enumerate(files):
-            file_url = await save_image_file(file)
+            file_url = upload_to_gcs(file)
             nueva_img = Imagen(
                 id_publicacion=id,
                 url_foto=file_url,
