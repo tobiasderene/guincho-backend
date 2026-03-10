@@ -22,7 +22,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
     raise ValueError("Falta definir SECRET_KEY en variables de entorno")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 180
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
@@ -50,7 +50,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
-        user_id: int = payload.get("id")  # 🔑 Asegurate que al crear el token incluyas el id
+        user_id: int = payload.get("id")  
 
         if username is None or user_id is None:
             raise credentials_exception
