@@ -209,7 +209,11 @@ async def obtener_publicacion(id_publicacion: int, db: Session = Depends(get_db)
 
 # Obtener publicación para editar (incluye IDs de imagen y numero_imagen)
 @router.get("/edit-post/{id_publicacion}", response_model=PublicacionEditDetails)
-async def obtener_publicacion_para_editar(id_publicacion: int, db: Session = Depends(get_db)):
+async def obtener_publicacion_para_editar(
+    id_publicacion: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
     pub = (
         db.query(Publicacion, Usuario.nombre_usuario, MarcaVehiculo.nombre_marca_vehiculo, CategoriaVehiculo.nombre_categoria_vehiculo)
         .join(Usuario, Usuario.id_usuario == Publicacion.id_usuario)
@@ -319,12 +323,18 @@ async def actualizar_publicacion(
             db.query(Imagen).filter(Imagen.id_publicacion == id).delete(synchronize_session=False)
 
         # Obtener todas las imágenes que quedan (mantenidas + nuevas que se agregarán)
-        imagenes_existentes = (
+        imagenes_existentes_raw = (
             db.query(Imagen)
             .filter(Imagen.id_publicacion == id)
-            .order_by(Imagen.numero_imagen)
             .all()
         )
+
+        # Respetar el orden que el frontend envió en mantener_imagenes
+        if keep_ids:
+            img_map = {img.id_imagen: img for img in imagenes_existentes_raw}
+            imagenes_existentes = [img_map[kid] for kid in keep_ids if kid in img_map]
+        else:
+            imagenes_existentes = imagenes_existentes_raw
 
         # Agregar nuevas imágenes
         nueva_imagen_objs = []

@@ -55,7 +55,8 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         if username is None or user_id is None:
             raise credentials_exception
 
-        return {"id": user_id, "usuario": username}
+        tipo_usuario: str = payload.get("tipo_usuario", "1")
+        return {"id": user_id, "usuario": username, "tipo_usuario": tipo_usuario}
 
     except JWTError as e:
         print("❌ Error al decodificar token:", str(e))

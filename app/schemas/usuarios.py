@@ -1,7 +1,6 @@
 from __future__ import annotations
 from pydantic import BaseModel
-from typing import Optional 
-from typing import TYPE_CHECKING
+from typing import Optional
 
 
 class UsuarioBase(BaseModel):
@@ -13,13 +12,12 @@ class UsuarioCreate(UsuarioBase):
     pass
 
 class UsuarioUpdate(BaseModel):
-    id_usuario: Optional[int]
-    nombre_usuario: Optional[str]
-    password: Optional[str]
-    tipo_usuario: Optional[str]
-    
-class UsuarioOut(UsuarioBase):
+    nombre_usuario: Optional[str] = None
+    password: Optional[str] = None
+
+class UsuarioOut(BaseModel):
     id_usuario: int
+    nombre_usuario: str
 
     model_config = {
         "from_attributes": True
